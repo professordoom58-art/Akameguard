@@ -1,0 +1,38 @@
+# ShellGuard Phase 2 scanner configuration.
+# The integrity monitor and runtime protection remain disabled until later phases.
+
+project_name: ShellGuard
+phase: 2
+
+scanner:
+  enabled: true
+  max_file_size_bytes: 2097152
+  rules:
+    - rules/php_rules.json
+    - rules/node_rules.json
+  extra_rule_paths: []
+
+monitor:
+  enabled: false
+  interval_seconds: 5
+
+paths:
+  include:
+    - .
+  ignore_folders:
+    - .git
+    - node_modules
+    - vendor
+    - private_testing
+    - shellguard_testkit
+
+runtime:
+  php: runtime/php/shellguard.php
+  node: runtime/node/shellguard.js
+
+reporting:
+  output: stdout
+
+integrity:
+  # Leave empty to use a baseline.json outside the scanned folder by default.
+  baseline_file: ""

@@ -1,0 +1,31 @@
+# Python bytecode and local tooling files
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build and coverage output
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local, potentially sensitive test data
+/private_testing/
+
+# Local testkit sandboxes should stay outside this repository.
+shellguard-testkit-*/

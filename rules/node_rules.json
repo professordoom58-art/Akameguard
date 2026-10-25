@@ -1,0 +1,32 @@
+[
+  {
+    "id": "NODE-CHILD-PROCESS",
+    "description": "Reference to Node.js child_process; review how process APIs are used.",
+    "regex": "(?i)\\bchild_process\\b",
+    "severity": "high"
+  },
+  {
+    "id": "NODE-PROCESS-EXEC",
+    "description": "Node.js process-spawning call syntax; review command construction and input handling.",
+    "regex": "(?i)\\b(?:exec|execFile|spawn|fork)\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "NODE-VM-EVAL",
+    "description": "Node.js vm evaluation call syntax; review dynamic code execution carefully.",
+    "regex": "(?i)\\bvm\\.(?:runInNewContext|runInThisContext)\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "NODE-EVAL",
+    "description": "JavaScript eval call syntax; review dynamic code execution carefully.",
+    "regex": "(?i)\\beval\\s*\\(",
+    "severity": "critical"
+  },
+  {
+    "id": "NODE-NEW-FUNCTION",
+    "description": "JavaScript Function constructor syntax; review dynamic code construction.",
+    "regex": "(?i)\\bnew\\s+Function\\s*\\(",
+    "severity": "high"
+  }
+]

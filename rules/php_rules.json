@@ -1,0 +1,44 @@
+[
+  {
+    "id": "PHP-EVAL",
+    "description": "PHP eval call syntax; review carefully because it evaluates a string as PHP code.",
+    "regex": "(?i)\\beval\\s*\\(",
+    "severity": "critical"
+  },
+  {
+    "id": "PHP-SYSTEM",
+    "description": "PHP system call syntax; review for unexpected operating-system command execution.",
+    "regex": "(?i)\\bsystem\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-SHELL-EXEC",
+    "description": "PHP shell_exec call syntax; review for unexpected operating-system command execution.",
+    "regex": "(?i)\\bshell_exec\\s*\\(",
+    "severity": "critical"
+  },
+  {
+    "id": "PHP-EXEC",
+    "description": "PHP exec call syntax; review arguments and the surrounding data flow.",
+    "regex": "(?i)\\bexec\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-PASSTHRU",
+    "description": "PHP passthru call syntax; review for unexpected command output.",
+    "regex": "(?i)\\bpassthru\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-PROC-OPEN",
+    "description": "PHP proc_open call syntax; review process creation and input handling.",
+    "regex": "(?i)\\bproc_open\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-ASSERT",
+    "description": "PHP assert call syntax; review dynamic strings and legacy behavior.",
+    "regex": "(?i)\\bassert\\s*\\(",
+    "severity": "medium"
+  }
+]
