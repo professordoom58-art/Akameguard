@@ -17,7 +17,6 @@ from .rules import Rule
 PHP_EXTENSIONS = frozenset({".php", ".phtml", ".php5", ".phar"})
 NODE_EXTENSIONS = frozenset({".js", ".mjs", ".cjs"})
 SUPPORTED_EXTENSIONS = PHP_EXTENSIONS.union(NODE_EXTENSIONS)
-UPLOAD_FOLDER_NAMES = frozenset({"upload", "uploads", "uploaded", "media", "attachments"})
 NON_CODE_EXTENSIONS = frozenset({".jpg", ".jpeg", ".png", ".gif", ".ico", ".pdf", ".txt", ".zip"})
 EXECUTABLE_EXTENSIONS = SUPPORTED_EXTENSIONS
 MINIFIED_AVERAGE_LINE_LENGTH = 400
@@ -61,6 +60,9 @@ PHP_VARIABLE_ASSIGNMENT_RE = re.compile(
 PHP_VARIABLE_CALL_RE = re.compile(r"\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(")
 PHP_EVAL_CONTEXT_RE = re.compile(
     r"(?i)\$_(?:GET|POST|REQUEST|COOKIE)|\b(?:base64_decode|gzinflate|str_rot13|fromCharCode|rawurldecode)\s*\("
+)
+PHP_COMMAND_EXEC_CONTEXT_RE = re.compile(
+    r"(?i)\$_(?:GET|POST|REQUEST|COOKIE|FILES|SERVER)\b|\b(?:base64_decode|gzinflate|str_rot13)\s*\("
 )
 NODE_EVAL_CONTEXT_RE = re.compile(
     r"(?i)\b(?:req(?:uest)?\.(?:body|query|params|headers)|base64|Buffer\.from|decodeURIComponent|fromCharCode)\b"
@@ -259,8 +261,8 @@ def _display_path(path: Path, root: Path) -> str:
         return path.as_posix()
 
 
-def _is_uploads_style(path: Path) -> bool:
-    return any(part.lower() in UPLOAD_FOLDER_NAMES.union({"files"}) for part in path.parts)
+def _is_uploads_style(path: Path, uploads_folder_names: frozenset) -> bool:
+    return any(part.lower() in uploads_folder_names for part in path.parts)
 
 
 def _has_double_extension(path: Path) -> bool:
@@ -300,9 +302,47 @@ def _escape_source_line(source_line: str) -> str:
     return "".join(escaped)
 
 
-def _safe_source_line(source_line: str) -> str:
+def _escaped_context(text: str, suffix: bool, encoded_limit: int) -> str:
+    selected = text[-60:] if suffix else text[:60]
+    while selected and len(_escape_source_line(selected)) > encoded_limit:
+        selected = selected[1:] if suffix else selected[:-1]
+    return _escape_source_line(selected)
+
+
+def _safe_source_line(
+    source_line: str, match_span: Optional[Tuple[int, int]] = None
+) -> str:
     escaped = _escape_source_line(source_line)
-    return escaped if len(escaped) <= 120 else escaped[:117] + "..."
+    if len(escaped) <= 120 or match_span is None:
+        return escaped if len(escaped) <= 120 else escaped[:117] + "..."
+
+    start, end = match_span
+    if not (0 <= start <= end <= len(source_line)):
+        return escaped[:117] + "..."
+    matched = _escape_source_line(source_line[start:end])
+    left_raw = source_line[max(0, start - 60) : start]
+    right_raw = source_line[end : min(len(source_line), end + 60)]
+    left_marker = start > len(left_raw)
+    right_marker = end + len(right_raw) < len(source_line)
+    available = 120 - len(matched) - (3 if left_marker else 0) - (3 if right_marker else 0)
+    if available < 0:
+        return matched[:120]
+    if left_raw and right_raw:
+        left_limit = available // 2
+        right_limit = available - left_limit
+    elif left_raw:
+        left_limit, right_limit = available, 0
+    else:
+        left_limit, right_limit = 0, available
+    left = _escaped_context(left_raw, True, left_limit)
+    right = _escaped_context(right_raw, False, right_limit)
+    return (
+        ("..." if left_marker else "")
+        + left
+        + matched
+        + right
+        + ("..." if right_marker else "")
+    )
 
 
 def _skip_node_heuristics(path: Path, text: str) -> bool:
@@ -313,7 +353,47 @@ def _skip_node_heuristics(path: Path, text: str) -> bool:
     return average_length > MINIFIED_AVERAGE_LINE_LENGTH
 
 
-def _rule_severity(rule: Rule, line: str) -> str:
+def _call_argument_text(
+    line: str, match, following_lines: Sequence[str] = ()
+) -> str:
+    opening = line.find("(", match.start(), match.end())
+    if opening < 0:
+        return ""
+    text = line[opening:]
+    if following_lines:
+        text += "\n" + "\n".join(following_lines)
+    depth = 0
+    quote = None
+    escaped = False
+    for index, character in enumerate(text):
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+            continue
+        if character in {"'", '"', "`"}:
+            quote = character
+        elif character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                return text[1:index]
+    return text[1:]
+
+
+def _rule_severity(
+    rule: Rule,
+    line: str,
+    match=None,
+    following_lines: Sequence[str] = (),
+) -> str:
+    if rule.id in {"PHP-SHELL-EXEC", "PHP-EXEC", "PHP-POPEN"}:
+        arguments = _call_argument_text(line, match, following_lines) if match else ""
+        return "critical" if PHP_COMMAND_EXEC_CONTEXT_RE.search(arguments) else "high"
     if rule.id not in {"PHP-EVAL", "NODE-EVAL"}:
         return rule.severity
     context = PHP_EVAL_CONTEXT_RE if rule.id == "PHP-EVAL" else NODE_EVAL_CONTEXT_RE
@@ -329,6 +409,7 @@ def _add_finding(
     explanation: str,
     what_to_do: str,
     source_line: str = "",
+    match_span: Optional[Tuple[int, int]] = None,
 ):
     findings.append(
         Finding(
@@ -338,12 +419,18 @@ def _add_finding(
             severity=severity,
             explanation=explanation,
             what_to_do=what_to_do,
-            source_line=_safe_source_line(source_line),
+            source_line=_safe_source_line(source_line, match_span),
         )
     )
 
 
-def _path_findings(path: Path, display: str, findings: List[Finding], source_line: str = ""):
+def _path_findings(
+    path: Path,
+    display: str,
+    findings: List[Finding],
+    source_line: str = "",
+    uploads_folder_names: frozenset = frozenset(),
+):
     if _has_double_extension(path):
         _add_finding(
             findings,
@@ -355,7 +442,7 @@ def _path_findings(path: Path, display: str, findings: List[Finding], source_lin
             "Confirm the filename is expected and remove misleading extensions from uploaded files.",
             source_line,
         )
-    if _is_uploads_style(path):
+    if _is_uploads_style(path, uploads_folder_names):
         _add_finding(
             findings,
             display,
@@ -502,6 +589,7 @@ def _heuristic_findings(
     if language == "node" and skip_node_heuristics:
         return
     if LONG_BASE64_RE.search(line):
+        base64_match = LONG_BASE64_RE.search(line)
         _add_finding(
             findings,
             file,
@@ -511,6 +599,7 @@ def _heuristic_findings(
             "This line contains a very long base64-like string.",
             "Decode it offline and verify that the content is required and trusted.",
             source_line,
+            base64_match.span() if base64_match else None,
         )
     compact_length = len("".join(character for character in line if not character.isspace()))
     if compact_length >= 160 and _entropy(line) >= 4.6:
@@ -523,8 +612,14 @@ def _heuristic_findings(
             "This long line has unusually high character entropy for source code.",
             "Inspect the line for packed, encrypted, or generated content before deployment.",
             source_line,
+            (len(line) // 2, len(line) // 2),
         )
     if len(line) >= 140 and _obfuscation_score(line) >= 3:
+        obfuscation_match = None
+        for marker in OBFUSCATION_MARKERS:
+            obfuscation_match = marker.search(line)
+            if obfuscation_match:
+                break
         _add_finding(
             findings,
             file,
@@ -534,6 +629,7 @@ def _heuristic_findings(
             "This long one-line expression combines several common obfuscation markers.",
             "Rewrite it into readable steps and verify every input and decoded value.",
             source_line,
+            obfuscation_match.span() if obfuscation_match else None,
         )
 
 
@@ -577,7 +673,13 @@ def _scan_file(
     if language is None:
         return
     lines = text.splitlines()
-    _path_findings(path, display, findings, lines[0] if lines else "")
+    _path_findings(
+        path,
+        display,
+        findings,
+        lines[0] if lines else "",
+        config.uploads_folder_names,
+    )
     matching_rules = tuple(_rules_for_language(rules, language))
     known_variables = set()
     php_backtick_state = None
@@ -590,16 +692,18 @@ def _scan_file(
                 search_text, php_backtick_state = _php_backtick_search_text(
                     line, php_backtick_state
                 )
-            if rule.compiled.search(search_text) and rule.id not in seen_rule_ids:
+            match = rule.compiled.search(search_text)
+            if match and rule.id not in seen_rule_ids:
                 _add_finding(
                     findings,
                     display,
                     line_number,
                     rule.id,
-                    _rule_severity(rule, line),
+                    _rule_severity(rule, line, match, lines[line_number:]),
                     rule.description,
                     "Review this match in context and remove it unless the behavior is documented and required.",
                     line,
+                    match.span(),
                 )
                 seen_rule_ids.add(rule.id)
         _heuristic_findings(

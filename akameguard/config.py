@@ -19,6 +19,21 @@ class ConfigError(ValueError):
 DEFAULT_IGNORE_FOLDERS = frozenset({".git", "node_modules", "vendor"})
 DEFAULT_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024
 DEFAULT_RULE_FILES = ("rules/php_rules.json", "rules/node_rules.json")
+DEFAULT_UPLOAD_FOLDER_NAMES = frozenset(
+    {
+        "upload",
+        "uploads",
+        "uploaded",
+        "user-upload",
+        "user-uploads",
+        "user_uploads",
+        "useruploads",
+        "file-upload",
+        "file-uploads",
+        "file_uploads",
+        "attachments",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +45,7 @@ class ScanConfig:
     max_file_size_bytes: int
     rule_paths: Tuple[Path, ...]
     baseline_file: Optional[Path] = None
+    uploads_folder_names: frozenset = DEFAULT_UPLOAD_FOLDER_NAMES
 
 
 def _strip_comment(value: str) -> str:
@@ -196,6 +212,14 @@ def load_config(config_path: Optional[str] = None) -> ScanConfig:
     configured_ignores.extend(_as_list(paths.get("exclude")))
     ignore_folders = frozenset(DEFAULT_IGNORE_FOLDERS.union(configured_ignores))
 
+    if "uploads_folder_names" in paths:
+        configured_uploads = _as_list(paths.get("uploads_folder_names"))
+    else:
+        configured_uploads = list(DEFAULT_UPLOAD_FOLDER_NAMES)
+    uploads_folder_names = frozenset(
+        item.strip().lower() for item in configured_uploads if item.strip()
+    )
+
     size_value = scanner.get(
         "max_file_size_bytes",
         scanner.get("max_file_size", raw.get("max_file_size_bytes", DEFAULT_MAX_FILE_SIZE_BYTES)),
@@ -225,4 +249,5 @@ def load_config(config_path: Optional[str] = None) -> ScanConfig:
         max_file_size_bytes=max_size,
         rule_paths=rule_paths,
         baseline_file=baseline_file,
+        uploads_folder_names=uploads_folder_names,
     )

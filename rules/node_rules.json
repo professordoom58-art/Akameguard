@@ -44,7 +44,7 @@
   {
     "id": "NODE-NEW-FUNCTION",
     "description": "JavaScript Function constructor syntax; review dynamic code construction.",
-    "regex": "(?i)\\bnew\\s+Function\\s*\\(",
+    "regex": "\\bnew\\s+Function\\s*\\(",
     "severity": "high"
   }
 ]

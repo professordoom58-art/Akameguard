@@ -25,6 +25,20 @@ paths:
     - vendor
     - private_testing
     - akameguard_testkit
+  # Script-like files under these folders get PATH-UPLOADS-SCRIPT.
+  # This replaces the default list; generic media and files are not included.
+  uploads_folder_names:
+    - upload
+    - uploads
+    - uploaded
+    - user-upload
+    - user-uploads
+    - user_uploads
+    - useruploads
+    - file-upload
+    - file-uploads
+    - file_uploads
+    - attachments
 
 runtime:
   php: runtime/php/akameguard.php

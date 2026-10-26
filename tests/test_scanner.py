@@ -179,7 +179,7 @@ class ScannerTests(unittest.TestCase):
                 "PATH-UPLOADS-SCRIPT",
                 {finding.rule_id for finding in findings if finding.file == "uploads/shell.php"},
             )
-            self.assertIn(
+            self.assertNotIn(
                 "PATH-UPLOADS-SCRIPT",
                 {finding.rule_id for finding in findings if finding.file == "files/image.jpg.php"},
             )
@@ -218,6 +218,108 @@ class ScannerTests(unittest.TestCase):
             }
             self.assertEqual(php_eval_severities, {2: "medium", 3: "critical"})
             self.assertEqual(node_eval_severities, {1: "medium", 2: "critical"})
+
+    def test_requested_scanner_fixes_use_runtime_generated_inert_samples(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            site = workspace / "site"
+            _write(
+                site / "scripts" / "constructors.js",
+                "const source = '" + "x" * 90 + "; new Function('return 1');" + "y" * 90
+                + "new function('return 2');';\n",
+            )
+            _write(
+                site / "php" / "commands.php",
+                "<?php\n"
+                "shell_exec('echo safe');\n"
+                "shell_exec($_GET['cmd']);\n"
+                "shell_exec($_COOKIE['cmd']);\n"
+                "shell_exec(base64_decode('safe'));\n"
+                "exec('echo safe');\n"
+                "exec($_POST['cmd']);\n"
+                "exec($_FILES['cmd']);\n"
+                "exec(gzinflate('safe'));\n"
+                "popen('echo safe', 'r');\n"
+                "popen($_REQUEST['cmd'], 'r');\n"
+                "popen($_SERVER['cmd'], 'r');\n"
+                "popen(str_rot13('safe'), 'r');\n",
+            )
+            _write(site / "media" / "benign.php", "<?php echo 'safe';\n")
+            _write(site / "files" / "benign.php", "<?php echo 'safe';\n")
+            _write(site / "user-uploads" / "benign.php", "<?php echo 'safe';\n")
+
+            config = load_config()
+            findings = scan(str(site), config, load_rules(config.rule_paths)).findings
+            by_rule = {}
+            for finding in findings:
+                by_rule.setdefault(finding.rule_id, []).append(finding)
+
+            constructor_findings = by_rule["NODE-NEW-FUNCTION"]
+            self.assertEqual(len(constructor_findings), 1)
+            self.assertIn("new Function", constructor_findings[0].source_line)
+            self.assertIn("...", constructor_findings[0].source_line)
+            self.assertFalse(constructor_findings[0].source_line.startswith("x"))
+            self.assertEqual(
+                {finding.file for finding in by_rule["PATH-UPLOADS-SCRIPT"]},
+                {"user-uploads/benign.php"},
+            )
+
+            expected_severities = {
+                "PHP-SHELL-EXEC": ["high", "critical", "critical", "critical"],
+                "PHP-EXEC": ["high", "critical", "critical", "critical"],
+                "PHP-POPEN": ["high", "critical", "critical", "critical"],
+            }
+            for rule_id, severities in expected_severities.items():
+                self.assertEqual(
+                    sorted(finding.severity for finding in by_rule[rule_id]),
+                    sorted(severities),
+                )
+
+            custom_config_path = workspace / "scanner.yaml"
+            _write(
+                custom_config_path,
+                "paths:\n"
+                "  uploads_folder_names:\n"
+                "    - media\n",
+            )
+            custom_config = load_config(str(custom_config_path))
+            custom_findings = scan(
+                str(site), custom_config, load_rules(custom_config.rule_paths)
+            ).findings
+            custom_upload_files = {
+                finding.file
+                for finding in custom_findings
+                if finding.rule_id == "PATH-UPLOADS-SCRIPT"
+            }
+            self.assertEqual(custom_upload_files, {"media/benign.php"})
+
+    def test_php_command_request_arguments_are_critical_and_variables_stay_high(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            _write(
+                site / "commands.php",
+                "<?php\n"
+                "shell_exec($_GET['c']);\n"
+                "$c = $_GET['c']; shell_exec($c);\n"
+                "exec($_GET['c']);\n"
+                "$c = $_GET['c']; exec($c);\n"
+                "popen($_GET['c'], 'r');\n"
+                "$c = $_GET['c']; popen($c, 'r');\n",
+            )
+
+            config = load_config()
+            findings = scan(str(site), config, load_rules(config.rule_paths)).findings
+            by_rule = {}
+            for finding in findings:
+                by_rule.setdefault(finding.rule_id, {})[finding.line] = finding.severity
+
+            for rule_id, direct_line, variable_line in (
+                ("PHP-SHELL-EXEC", 2, 3),
+                ("PHP-EXEC", 4, 5),
+                ("PHP-POPEN", 6, 7),
+            ):
+                self.assertEqual(by_rule[rule_id][direct_line], "critical")
+                self.assertIn(by_rule[rule_id][variable_line], ("high", "critical"))
 
     def test_finding_source_line_is_escaped_and_truncated_in_reports(self):
         with tempfile.TemporaryDirectory() as temporary:

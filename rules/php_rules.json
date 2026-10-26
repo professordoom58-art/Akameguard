@@ -15,7 +15,7 @@
     "id": "PHP-SHELL-EXEC",
     "description": "PHP shell_exec call syntax; review for unexpected operating-system command execution.",
     "regex": "(?i)\\bshell_exec\\s*\\(",
-    "severity": "critical"
+    "severity": "high"
   },
   {
     "id": "PHP-EXEC",

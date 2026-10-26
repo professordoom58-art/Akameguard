@@ -139,6 +139,7 @@ def _build_parser():
         default="text",
         help="report format (default: text)",
     )
+    subparsers.add_parser("gui", help="open the read-only desktop GUI")
     return parser
 
 
@@ -331,6 +332,10 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "gui":
+            from .gui import launch_gui
+
+            return launch_gui()
         if args.command == "harden-check":
             result = harden_check(php_ini=args.php_ini, site=args.site)
             if args.format == "json":

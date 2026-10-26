@@ -38,6 +38,8 @@ python -m akameguard scan path/to/site
 python -m akameguard harden-check --php-ini /path/to/php.ini --site /path/to/site
 python -m akameguard baseline path/to/site --baseline-file /path/to/baseline.json
 python -m akameguard check path/to/site --baseline-file /path/to/baseline.json
+python -m akameguard gui
+akameguard gui
 ```
 
 Use an authorized, disposable copy of a site. Keep baselines and logs outside
@@ -122,7 +124,10 @@ and `hardeningSnippets()` in Node.js. They return strings and do not edit files.
 `config.yaml` controls scanner rules, extra rules, file-size limits, ignored
 folders, integrity baselines, and runtime configuration paths. `.git`,
 `node_modules`, and `vendor` are ignored by default. JSON rule files are data
-only; the scanner never executes source code.
+only; the scanner never executes source code. `paths.uploads_folder_names`
+configures the folder names that trigger `PATH-UPLOADS-SCRIPT`; it replaces the
+default upload-specific list, which intentionally excludes generic `media` and
+`files` names.
 
 ## What AkameGuard does NOT do
 
