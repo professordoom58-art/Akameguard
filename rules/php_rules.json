@@ -74,7 +74,7 @@
   {
     "id": "PHP-BACKTICK",
     "description": "PHP backtick operator syntax; review for operating-system command execution.",
-    "regex": "(?i)`[^`\\r\\n]*`",
+    "regex": "(?i)(?:^|[=(:,;!&|?]\\s*|\\b(?:return|echo|print)\\b\\s*)`[^`\\r\\n]*`",
     "severity": "high"
   },
   {

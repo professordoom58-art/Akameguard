@@ -75,6 +75,7 @@ class ScannerTests(unittest.TestCase):
                 "<?php\n"
                 "// popen('demo'); pcntl_exec('demo', []); create_function('', 'return 1;');\n"
                 "// call_user_func($callback, 'demo'); call_user_func_array($callback, []);\n"
+                "$output = `printf 'AKAMEGUARD_TEST_MARKER'`;\n"
                 "// $output = `id`; include $_GET['page']; require_once($_REQUEST['file']);\n"
                 "// $handler = 'system'; $handler('demo');\n",
             )
@@ -113,6 +114,157 @@ class ScannerTests(unittest.TestCase):
             ]
             self.assertTrue(variable_findings)
             self.assertTrue(all(finding.severity == "medium" for finding in variable_findings))
+
+    def test_php_backtick_rule_ignores_sql_string_literals(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            _write(
+                site / "sql_examples.php",
+                "<?php\n"
+                "$double = \"SELECT * FROM `wp_posts` WHERE `ID` = 1\";\n"
+                "$single = 'SELECT * FROM `wp_posts` WHERE `ID` = 1';\n"
+                "$multi = \"SELECT `ID`\n"
+                " WHERE `ID` = 1\";\n"
+                "$output = `printf 'AKAMEGUARD_TEST_MARKER'`;\n"
+                "$comment = 1; // `not a shell command`\n",
+            )
+
+            config = load_config()
+            findings = scan(str(site), config, load_rules(config.rule_paths)).findings
+            backtick_findings = [
+                finding for finding in findings if finding.rule_id == "PHP-BACKTICK"
+            ]
+
+            self.assertEqual(len(backtick_findings), 1)
+            self.assertEqual(backtick_findings[0].line, 6)
+
+    def test_noise_rules_reduce_benign_patterns_without_hiding_real_looking_code(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            entropy_line = "const entropy = '" + "".join(
+                chr(33 + (index % 90)) for index in range(190)
+            ) + "';\n"
+            _write(site / "plupload" / "safe.php", "<?php echo 'safe';\n")
+            _write(site / "uploads" / "shell.php", "<?php echo 'marker';\n")
+            _write(site / "files" / "image.jpg.php", "<?php echo 'marker';\n")
+            _write(site / "scripts" / "photo.jpg.php", "<?php echo 'marker';\n")
+            _write(
+                site / "scripts" / "bundle.min.js",
+                entropy_line.rstrip("\n") + "new Function('return \\\"MARKER\\\"');\n",
+            )
+            _write(site / "scripts" / "bundle.js", entropy_line)
+            _write(
+                site / "php_eval.php",
+                "<?php\n"
+                "eval('AKAMEGUARD_LITERAL_MARKER');\n"
+                "eval(base64_decode('AKAMEGUARD_DECODER_MARKER'));\n",
+            )
+            _write(
+                site / "node_eval.js",
+                "eval('AKAMEGUARD_LITERAL_MARKER');\n"
+                "eval(Buffer.from('AKAMEGUARD_DECODER_MARKER'));\n",
+            )
+
+            config = load_config()
+            findings = scan(str(site), config, load_rules(config.rule_paths)).findings
+            by_rule = {}
+            for finding in findings:
+                by_rule.setdefault(finding.rule_id, []).append(finding)
+
+            self.assertNotIn(
+                "PATH-UPLOADS-SCRIPT",
+                {finding.file for finding in findings if finding.file.startswith("plupload/")},
+            )
+            self.assertIn(
+                "PATH-UPLOADS-SCRIPT",
+                {finding.rule_id for finding in findings if finding.file == "uploads/shell.php"},
+            )
+            self.assertIn(
+                "PATH-UPLOADS-SCRIPT",
+                {finding.rule_id for finding in findings if finding.file == "files/image.jpg.php"},
+            )
+            self.assertIn(
+                "PATH-DOUBLE-EXTENSION",
+                {finding.rule_id for finding in findings if finding.file == "files/image.jpg.php"},
+            )
+            self.assertIn(
+                "PATH-DOUBLE-EXTENSION",
+                {finding.rule_id for finding in findings if finding.file == "scripts/photo.jpg.php"},
+            )
+            self.assertNotIn(
+                "PATH-DOUBLE-EXTENSION",
+                {finding.rule_id for finding in findings if finding.file == "scripts/bundle.min.js"},
+            )
+            self.assertIn(
+                "NODE-NEW-FUNCTION",
+                {finding.rule_id for finding in findings if finding.file == "scripts/bundle.min.js"},
+            )
+            self.assertNotIn(
+                "HEURISTIC-HIGH-ENTROPY",
+                {finding.rule_id for finding in findings if finding.file == "scripts/bundle.min.js"},
+            )
+            self.assertIn(
+                "HEURISTIC-HIGH-ENTROPY",
+                {finding.rule_id for finding in findings if finding.file == "scripts/bundle.js"},
+            )
+
+            php_eval_severities = {
+                finding.line: finding.severity
+                for finding in by_rule["PHP-EVAL"]
+            }
+            node_eval_severities = {
+                finding.line: finding.severity
+                for finding in by_rule["NODE-EVAL"]
+            }
+            self.assertEqual(php_eval_severities, {2: "medium", 3: "critical"})
+            self.assertEqual(node_eval_severities, {1: "medium", 2: "critical"})
+
+    def test_finding_source_line_is_escaped_and_truncated_in_reports(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            source_line = "<?php eval('AKAMEGUARD_TEST_MARKER');\x00\x1b\x7f" + "A" * 200
+            _write(site / "binary-looking.php", source_line + "\n")
+
+            config = load_config()
+            findings = scan(str(site), config, load_rules(config.rule_paths)).findings
+            finding = next(item for item in findings if item.rule_id == "PHP-EVAL")
+
+            self.assertLessEqual(len(finding.source_line), 120)
+            self.assertIn("eval('AKAMEGUARD_TEST_MARKER')", finding.source_line)
+            self.assertIn("\\x00", finding.source_line)
+            self.assertIn("\\x1b", finding.source_line)
+            self.assertIn("\\x7f", finding.source_line)
+            self.assertNotRegex(finding.source_line, r"[\x00-\x1f\x7f]")
+
+            report = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--format",
+                    "json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            payload = json.loads(report.stdout)
+            json_finding = next(
+                item for item in payload["findings"] if item["rule_id"] == "PHP-EVAL"
+            )
+            self.assertEqual(json_finding["source_line"], finding.source_line)
+
+            text_report = subprocess.run(
+                [sys.executable, "-m", "akameguard", "scan", str(site), "--verbose"],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertIn("source: %s" % finding.source_line, text_report.stdout)
 
     def test_contextual_rules_avoid_clean_wordpress_and_express_patterns(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -246,6 +398,227 @@ class ScannerTests(unittest.TestCase):
                 payload["skipped"],
                 [{"path": "large.php", "reason": "larger than max_file_size_bytes"}],
             )
+
+    def test_accepted_findings_require_matching_path_rule_and_hash(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            site = workspace / "site"
+            site.mkdir()
+            sample = site / "sample.php"
+            original = "<?php eval('AKAMEGUARD_TEST_MARKER');\n"
+            sample.write_text(original, encoding="utf-8")
+            accepted = workspace / "accepted.json"
+
+            written = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--write-accepted",
+                    str(accepted),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(written.returncode, 1)
+            accepted_entries = json.loads(accepted.read_text(encoding="utf-8"))
+            self.assertEqual(accepted_entries[0]["path"], "sample.php")
+            self.assertEqual(accepted_entries[0]["rule_id"], "PHP-EVAL")
+            self.assertEqual(
+                accepted_entries[0]["file_sha256"],
+                hashlib.sha256(sample.read_bytes()).hexdigest(),
+            )
+
+            accepted_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(accepted),
+                    "--format",
+                    "json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            accepted_payload = json.loads(accepted_result.stdout)
+            self.assertEqual(accepted_result.returncode, 0)
+            self.assertEqual(accepted_payload["findings"], [])
+            self.assertEqual(accepted_payload["summary"]["suppressed_findings"], 1)
+            self.assertEqual(accepted_payload["suppressed_findings"], 1)
+
+            sample.write_text(original + "// changed\n", encoding="utf-8")
+            changed_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(accepted),
+                    "--format",
+                    "json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            changed_payload = json.loads(changed_result.stdout)
+            self.assertEqual(changed_result.returncode, 1)
+            self.assertEqual(changed_payload["summary"]["suppressed_findings"], 0)
+            self.assertTrue(changed_payload["findings"])
+
+            sample.write_text(original, encoding="utf-8")
+            wrong_rule = workspace / "wrong-rule.json"
+            wrong_rule.write_text(
+                json.dumps(
+                    [
+                        {
+                            **accepted_entries[0],
+                            "rule_id": "PHP-SYSTEM",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            wrong_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(wrong_rule),
+                    "--format",
+                    "json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            wrong_payload = json.loads(wrong_result.stdout)
+            self.assertEqual(wrong_result.returncode, 1)
+            self.assertEqual(wrong_payload["summary"]["suppressed_findings"], 0)
+            self.assertTrue(wrong_payload["findings"])
+
+            traversal = workspace / "traversal.json"
+            traversal.write_text(
+                json.dumps(
+                    [
+                        {
+                            "path": "../outside.php",
+                            "rule_id": "PHP-EVAL",
+                            "file_sha256": "0" * 64,
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            traversal_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(traversal),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(traversal_result.returncode, 2)
+            self.assertIn("allowlist path", traversal_result.stderr)
+
+            inside = site / "accepted.json"
+            inside.write_text(accepted.read_text(encoding="utf-8"), encoding="utf-8")
+            inside_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(inside),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(inside_result.returncode, 2)
+            self.assertIn("refusing to read an allowlist inside", inside_result.stderr)
+
+            allowed_inside_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "akameguard",
+                    "scan",
+                    str(site),
+                    "--accept-findings",
+                    str(inside),
+                    "--allow-inside-root",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(allowed_inside_result.returncode, 0)
+            self.assertIn("Warning: --allow-inside-root", allowed_inside_result.stderr)
+
+    def test_text_report_groups_findings_unless_verbose(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            site = Path(temporary)
+            _write(
+                site / "sample.php",
+                "<?php\n"
+                "eval('AKAMEGUARD_FIRST_MARKER');\n"
+                "eval('AKAMEGUARD_SECOND_MARKER');\n",
+            )
+            grouped = subprocess.run(
+                [sys.executable, "-m", "akameguard", "scan", str(site)],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(grouped.returncode, 1)
+            self.assertIn("Findings by rule:", grouped.stdout)
+            self.assertIn("rule: PHP-EVAL", grouped.stdout)
+            self.assertIn("severity: medium", grouped.stdout)
+            self.assertIn("count: 2", grouped.stdout)
+            self.assertIn("sample.php:2", grouped.stdout)
+            self.assertIn("sample.php:3", grouped.stdout)
+            self.assertNotIn("Finding:\n", grouped.stdout)
+
+            verbose = subprocess.run(
+                [sys.executable, "-m", "akameguard", "scan", str(site), "--verbose"],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(verbose.returncode, 1)
+            self.assertIn("Finding:\n", verbose.stdout)
+            self.assertIn("source: eval('AKAMEGUARD_FIRST_MARKER');", verbose.stdout)
 
     def test_scanner_does_not_follow_symlinked_directories(self):
         with tempfile.TemporaryDirectory() as temporary:

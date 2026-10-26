@@ -84,6 +84,8 @@ python -m akameguard harden-check --php-ini path/to/php.ini --site path/to/site
 python -m akameguard check path/to/site --scan --format json
 ```
 
+Generate an allowlist only from a known-clean install; use `--write-accepted FILE` and `--accept-findings FILE` for reviewed findings.
+
 Exit codes are `0` for no findings, `1` for findings, and `2` for an error.
 The scanner and hardening checker do not modify site files. Baselines use
 SHA-256; new code or files in uploads-style folders are high severity.
@@ -168,6 +170,8 @@ cleanup command and restricts cleanup to its own temporary sandbox.
   broader execution-pattern rule may still catch it.
 - The Node child-process guard is disabled by default and can break applications
   when enabled.
+- Accepted-findings allowlists are for a codebase reviewed once; they do not
+  replace integrity monitoring, and a writable allowlist is a tampering risk.
 
 ## License
 
