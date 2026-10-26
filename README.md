@@ -4,8 +4,6 @@ AkameGuard is an open-source web shell detection and early warning project for
 PHP and Node.js websites. It is designed to be easy to install, easy to read,
 and friendly to people who are learning how website security tools work.
 
-Named in tribute to a favorite anime. Not affiliated with the series or its publishers.
-
 ## Who needs this?
 
 A web shell is a hidden script planted on a website that can let an attacker read database passwords, steal or change data, or attack others. Small businesses on shared hosting, WordPress and other CMS sites, online shops, agencies managing many sites, and schools, clinics, and nonprofits with small IT teams are exposed because outdated plugins, unsafe uploads, weak passwords, and unnoticed new files give attackers openings. AkameGuard is a free, open-source tripwire and early-warning tool: its scanner, file integrity monitor, request guard, and hardening checker help you notice suspicious code, starting in monitor mode so it cannot break a site. It does not replace updates, strong passwords, backups, or a firewall, and cannot catch every disguised attack; see [Known limitations](#known-limitations).
