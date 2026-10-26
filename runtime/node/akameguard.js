@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * AkameGuard Node.js runtime protection.
+ * AkameGuard Node.js runtime request inspection.
  *
  * The default mode is MONITOR: matching requests are logged and passed to the
  * application. BLOCK mode is opt-in. This module never evaluates request data

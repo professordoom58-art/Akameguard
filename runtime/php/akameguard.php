@@ -1,6 +1,6 @@
 <?php
 /**
- * AkameGuard PHP runtime protection.
+ * AkameGuard PHP runtime request inspection.
  *
  * Default behavior is MONITOR: suspicious requests are recorded as JSON lines
  * and allowed to continue. BLOCK mode is opt-in in runtime/config.json or in

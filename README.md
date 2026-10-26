@@ -8,11 +8,11 @@ Named in tribute to a favorite anime. Not affiliated with the series or its publ
 
 ## Who needs this?
 
-A web shell is a hidden script planted on a website that can let an attacker read database passwords, steal or change data, or attack others. Small businesses on shared hosting, WordPress and other CMS sites, online shops, agencies managing many sites, and schools, clinics, and nonprofits with small IT teams are exposed because outdated plugins, unsafe uploads, weak passwords, and unnoticed new files give attackers openings. AkameGuard is a free, open-source tripwire and early-warning tool: its scanner, file integrity monitor, request guard, and hardening checker help you notice suspicious code, starting in monitor mode so it cannot break a site. It does not replace updates, strong passwords, backups, or a firewall, and cannot catch every disguised attack; see [Known limitations](#known-limitations).
+A web shell is a hidden script planted on a website that lets an attacker read database passwords, steal or change data, or attack others. Small businesses on shared hosting, WordPress and other CMS sites, online shops, agencies managing many sites, and schools, clinics, and nonprofits with small IT teams are exposed because outdated plugins, unsafe uploads, weak passwords, and unnoticed new files give attackers openings. AkameGuard is a free, open-source tripwire and early-warning tool: its scanner, file integrity monitor, request guard, and hardening checker help you notice suspicious code, starting in monitor mode so it cannot break a site. It does not replace updates, strong passwords, backups, or a firewall, and cannot catch every disguised attack; see [Known limitations](#known-limitations).
 
 ## Why this matters now
 
-On October 21, 2026, PHP released fixes for two critical remote code execution flaws, [CVE-2026-109618](https://almalinux.org/blog/2026-10-21-php2shell-cve-2026-109618-cve-2026-109619/) and [CVE-2026-109619](https://watchtowr.com/intelligence/php-cve-2026-109618-faq/), nicknamed php2shell, in PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35. Organizations including Wikimedia, 4chan, Fur Affinity, Miraheze, and Pinboard took services offline or restricted them as a precaution while patching. Updating PHP is the real fix and AkameGuard does not replace it; it is a tripwire for new or changed files and known web shell patterns. Its request guard runs inside PHP, so it cannot stop flaws in PHP's own request handling; see [Known limitations](#known-limitations).
+On October 21, 2026, PHP released fixes for two critical remote code execution flaws, [CVE-2026-109618](https://almalinux.org/blog/2026-10-21-php2shell-cve-2026-109618-cve-2026-109619/) and [CVE-2026-109619](https://watchtowr.com/intelligence/php-cve-2026-109618-faq/), nicknamed php2shell, in PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35. Organizations including Wikimedia, 4chan, Fur Affinity, Miraheze, and Pinboard took services offline or restricted them as a precaution while patching. Updating PHP is the real fix and AkameGuard does not replace it; it is a tripwire for new or changed files and known web shell patterns. The scanner's rules target known web shell file patterns and would not detect artifacts of a memory-corruption exploit like php2shell itself. Its request guard runs inside PHP, so it cannot stop flaws in PHP's own request handling; see [Known limitations](#known-limitations).
 
 ## Quick start in 5 minutes
 
@@ -435,6 +435,18 @@ source code while scanning.
   enabled.
 - Baseline checks depend on correct web-root and baseline-path configuration;
   they are not a substitute for deployment controls or file permissions.
+- IP allowlists use `REMOTE_ADDR` in PHP and `socket.remoteAddress` in Node.js.
+  Behind a reverse proxy such as nginx, Cloudflare, or AWS ALB, that is the
+  proxy's IP rather than the client's. Configure the proxy to pass the real
+  client IP into `REMOTE_ADDR`, or use path allowlists instead.
+- Both runtimes fail open: if configuration, rules, or logging fail to load,
+  requests are allowed through. In BLOCK mode, a configuration error silently
+  disables blocking.
+- URL decoding is limited to two layers. Node.js does not inspect the raw
+  request body (`php://input` is PHP-only). The command-parameter rule only
+  fires for an allowlisted set of parameter names, so a renamed parameter can
+  carry a payload undetected by that specific rule; the broader
+  execution-pattern rule may still catch it.
 
 ## License
 

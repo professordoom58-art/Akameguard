@@ -146,9 +146,17 @@ class ScannerTests(unittest.TestCase):
             _write(site / "package.json", '{"name":"clean-express-like-site"}\n')
 
             config = load_config()
-            result = scan(str(site), config, load_rules(config.rule_paths), min_severity="high")
+            result = scan(str(site), config, load_rules(config.rule_paths))
             ids = {finding.rule_id for finding in result.findings}
-            self.assertEqual(result.findings, ())
+            self.assertEqual(
+                ids,
+                {
+                    "PHP-CALL-USER-FUNC",
+                    "PHP-CALL-USER-FUNC-ARRAY",
+                    "NODE-DYNAMIC-IMPORT",
+                },
+            )
+            self.assertTrue(all(finding.severity == "medium" for finding in result.findings))
             self.assertNotIn("NODE-PROCESS-EXEC", ids)
             self.assertNotIn("PHP-EVAL", ids)
             self.assertNotIn("PHP-EXEC", ids)
