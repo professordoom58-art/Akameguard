@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a conservative, read-only safety audit before publishing ShellGuard.
+"""Run a conservative, read-only safety audit before publishing AkameGuard.
 
 The audit does not stage, modify, delete, or upload anything. It checks Git
 tracking when a Git repository is available, scans publishable text for a few
@@ -17,6 +17,8 @@ from typing import Iterable, List, Sequence, Tuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
+LEGACY_TESTKIT_DIRECTORY = "shell" + "guard_testkit"
+CURRENT_TESTKIT_DIRECTORY = "akameguard_testkit"
 IGNORED_DIRECTORY_NAMES = {
     ".git",
     ".pytest_cache",
@@ -25,7 +27,8 @@ IGNORED_DIRECTORY_NAMES = {
     "venv",
     "node_modules",
     "private_testing",
-    "shellguard_testkit",
+    CURRENT_TESTKIT_DIRECTORY,
+    LEGACY_TESTKIT_DIRECTORY,
 }
 SUSPICIOUS_SAMPLE_NAMES = {
     "inert_upload.php",
@@ -116,14 +119,17 @@ def _check_tracking() -> Tuple[List[str], bool]:
     prohibited = []
     for item in tracked:
         normalized = item.replace("\\", "/").lower()
-        if normalized.startswith("private_testing/") or normalized.startswith("shellguard_testkit/"):
+        if normalized.startswith("private_testing/") or any(
+            normalized.startswith(directory + "/")
+            for directory in (LEGACY_TESTKIT_DIRECTORY, CURRENT_TESTKIT_DIRECTORY)
+        ):
             prohibited.append(item)
     if prohibited:
         print("GIT TRACKING: FAIL - prohibited paths are tracked:")
         for item in prohibited:
             print("  %s" % item)
     else:
-        print("GIT TRACKING: OK - no shellguard_testkit/ or private_testing/ files are tracked.")
+        print("GIT TRACKING: OK - no legacy or current testkit/ or private_testing/ files are tracked.")
     return prohibited, True
 
 

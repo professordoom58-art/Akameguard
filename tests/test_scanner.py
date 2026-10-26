@@ -7,9 +7,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from shellguard.config import load_config
-from shellguard.rules import load_rules
-from shellguard.scanner import scan
+from akameguard.config import load_config
+from akameguard.rules import load_rules
+from akameguard.scanner import scan
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -220,7 +220,7 @@ class ScannerTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "shellguard",
+                    "akameguard",
                     "scan",
                     str(site),
                     "--config",
@@ -264,7 +264,7 @@ class ScannerTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "shellguard",
+                    "akameguard",
                     "scan",
                     str(site),
                     "--format",
@@ -279,7 +279,7 @@ class ScannerTests(unittest.TestCase):
             payload = json.loads(report.stdout)
             self.assertGreater(payload["summary"]["total_findings"], 0)
             missing = subprocess.run(
-                [sys.executable, "-m", "shellguard", "scan", str(site / "missing")],
+                [sys.executable, "-m", "akameguard", "scan", str(site / "missing")],
                 cwd=str(ROOT),
                 capture_output=True,
                 text=True,

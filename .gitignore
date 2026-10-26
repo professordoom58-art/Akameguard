@@ -28,4 +28,4 @@ Thumbs.db
 /private_testing/
 
 # Local testkit sandboxes should stay outside this repository.
-shellguard-testkit-*/
+akameguard-testkit-*/

@@ -1,7 +1,7 @@
-# ShellGuard Phase 5 configuration.
+# AkameGuard Phase 5 configuration.
 # Runtime protection defaults to monitor-only and remains opt-in for block mode.
 
-project_name: ShellGuard
+project_name: AkameGuard
 phase: 5
 
 scanner:
@@ -24,11 +24,11 @@ paths:
     - node_modules
     - vendor
     - private_testing
-    - shellguard_testkit
+    - akameguard_testkit
 
 runtime:
-  php: runtime/php/shellguard.php
-  node: runtime/node/shellguard.js
+  php: runtime/php/akameguard.php
+  node: runtime/node/akameguard.js
   config: runtime/config.json
   rules: runtime/rules.json
 

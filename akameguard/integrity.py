@@ -1,4 +1,4 @@
-"""Read-only file integrity baselines and comparisons for ShellGuard."""
+"""Read-only file integrity baselines and comparisons for AkameGuard."""
 
 from collections import Counter
 from dataclasses import dataclass

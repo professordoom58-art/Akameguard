@@ -6,9 +6,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from shellguard.config import load_config
-from shellguard.integrity import IntegrityError, check_baseline, create_baseline, resolve_baseline_path
-from shellguard.rules import load_rules
+from akameguard.config import load_config
+from akameguard.integrity import IntegrityError, check_baseline, create_baseline, resolve_baseline_path
+from akameguard.rules import load_rules
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,7 +89,7 @@ class IntegrityMonitorTests(unittest.TestCase):
             common = [
                 sys.executable,
                 "-m",
-                "shellguard",
+                "akameguard",
             ]
             created = subprocess.run(
                 common
@@ -193,7 +193,7 @@ class IntegrityMonitorTests(unittest.TestCase):
             create_baseline(str(site), config, baseline)
             original = baseline.read_text(encoding="utf-8")
 
-            with mock.patch("shellguard.integrity.os.replace", side_effect=OSError("rename blocked")):
+            with mock.patch("akameguard.integrity.os.replace", side_effect=OSError("rename blocked")):
                 with self.assertRaises(IntegrityError):
                     create_baseline(str(site), config, baseline, allow_overwrite=True)
 

@@ -79,12 +79,12 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
                 "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
                 "$_SERVER['REMOTE_ADDR'] = '127.0.0.1';\n"
-                "$_GET['cmd'] = 'echo SHELLGUARD_TEST_MARKER';\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "$_GET['cmd'] = 'echo AKAMEGUARD_TEST_MARKER';\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
                 "echo 'SAFE_ENDPOINT';\n",
                 encoding="utf-8",
             )
@@ -126,13 +126,13 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
                 "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
                 "$_GET['action'] = 'eval%2528x%2529';\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
-                "$_GET['action'] = 'echo SHELLGUARD_TEST_MARKER';\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "$_GET['action'] = 'echo AKAMEGUARD_TEST_MARKER';\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -169,10 +169,10 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
                 "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
                 "echo 'SAFE_ENDPOINT';\n",
                 encoding="utf-8",
             )
@@ -205,13 +205,13 @@ class PhpRuntimeTests(unittest.TestCase):
                     with urllib.request.urlopen(request, timeout=5) as response:
                         return response.read().decode("utf-8", errors="replace")
 
-                self.assertIn("SAFE_ENDPOINT", post("echo SHELLGUARD_TEST_MARKER"))
+                self.assertIn("SAFE_ENDPOINT", post("echo AKAMEGUARD_TEST_MARKER"))
                 self.assertIn("REQUEST-COMMAND-PARAMETER", log_path.read_text(encoding="utf-8"))
 
                 log_path.unlink()
                 self.assertIn(
                     "SAFE_ENDPOINT",
-                    post(("a-" * 32768) + " echo SHELLGUARD_TEST_MARKER"),
+                    post(("a-" * 32768) + " echo AKAMEGUARD_TEST_MARKER"),
                 )
                 self.assertFalse(log_path.exists())
             finally:
@@ -252,9 +252,9 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -265,8 +265,8 @@ class PhpRuntimeTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn('ShellGuard warning: ip_allowlist contains "*"', result.stderr)
-            self.assertIn('ShellGuard warning: path_allowlist contains "/*"', result.stderr)
+            self.assertIn('AkameGuard warning: ip_allowlist contains "*"', result.stderr)
+            self.assertIn('AkameGuard warning: path_allowlist contains "/*"', result.stderr)
 
     def test_default_log_path_is_private_and_restrictive_on_posix(self):
         php_binary = PHP
@@ -288,13 +288,13 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
                 "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
-                "$_GET['cmd'] = 'echo SHELLGUARD_TEST_MARKER';\n"
-                "$config = shellguard_runtime_config(['config_path' => " + repr(str(config_path)) + "]);\n"
-                "echo shellguard_log_path($config), PHP_EOL;\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
+                "$_GET['cmd'] = 'echo AKAMEGUARD_TEST_MARKER';\n"
+                "$config = akameguard_runtime_config(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "echo akameguard_log_path($config), PHP_EOL;\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
                 encoding="utf-8",
             )
             result = subprocess.run(
@@ -348,11 +348,11 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             harness_path.write_text(
                 "<?php\n"
-                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
-                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "define('AKAMEGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "akameguard.php")) + ";\n"
                 "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
                 "$_GET['payload'] = 'harmless';\n"
-                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "akameguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
                 "echo 'SAFE_ENDPOINT';\n",
                 encoding="utf-8",
             )
@@ -365,7 +365,7 @@ class PhpRuntimeTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("SAFE_ENDPOINT", result.stdout)
-            self.assertIn("ShellGuard: regex match failed", result.stderr)
+            self.assertIn("AkameGuard: regex match failed", result.stderr)
 
 
 if __name__ == "__main__":

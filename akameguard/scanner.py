@@ -1,4 +1,4 @@
-"""Read-only ShellGuard source scanner."""
+"""Read-only AkameGuard source scanner."""
 
 from collections import Counter
 from dataclasses import dataclass

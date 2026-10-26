@@ -1,8 +1,18 @@
-# ShellGuard
+# AkameGuard
 
-ShellGuard is an open-source web shell detection and early warning project for
+AkameGuard is an open-source web shell detection and early warning project for
 PHP and Node.js websites. It is designed to be easy to install, easy to read,
 and friendly to people who are learning how website security tools work.
+
+Named in tribute to a favorite anime. Not affiliated with the series or its publishers.
+
+## Who needs this?
+
+A web shell is a hidden script planted on a website that can let an attacker read database passwords, steal or change data, or attack others. Small businesses on shared hosting, WordPress and other CMS sites, online shops, agencies managing many sites, and schools, clinics, and nonprofits with small IT teams are exposed because outdated plugins, unsafe uploads, weak passwords, and unnoticed new files give attackers openings. AkameGuard is a free, open-source tripwire and early-warning tool: its scanner, file integrity monitor, request guard, and hardening checker help you notice suspicious code, starting in monitor mode so it cannot break a site. It does not replace updates, strong passwords, backups, or a firewall, and cannot catch every disguised attack; see [Known limitations](#known-limitations).
+
+## Why this matters now
+
+On October 21, 2026, PHP released fixes for two critical remote code execution flaws, [CVE-2026-109618](https://almalinux.org/blog/2026-10-21-php2shell-cve-2026-109618-cve-2026-109619/) and [CVE-2026-109619](https://watchtowr.com/intelligence/php-cve-2026-109618-faq/), nicknamed php2shell, in PHP 8.5.12, 8.4.27, 8.3.36, and 8.2.35. Organizations including Wikimedia, 4chan, Fur Affinity, Miraheze, and Pinboard took services offline or restricted them as a precaution while patching. Updating PHP is the real fix and AkameGuard does not replace it; it is a tripwire for new or changed files and known web shell patterns. Its request guard runs inside PHP, so it cannot stop flaws in PHP's own request handling; see [Known limitations](#known-limitations).
 
 ## Quick start in 5 minutes
 
@@ -15,20 +25,20 @@ and friendly to people who are learning how website security tools work.
 2. Scan a disposable copy of a site:
 
    ```text
-   shellguard scan path/to/site
+   akameguard scan path/to/site
    ```
 
 3. Check deployment hardening before enabling optional runtime blocking:
 
    ```text
-   shellguard harden-check --php-ini /path/to/php.ini --site /path/to/site
+   akameguard harden-check --php-ini /path/to/php.ini --site /path/to/site
    ```
 
 4. Create an integrity baseline outside the site and check it later:
 
    ```text
-   shellguard baseline path/to/site --baseline-file /path/to/baseline.json
-   shellguard check path/to/site --baseline-file /path/to/baseline.json
+   akameguard baseline path/to/site --baseline-file /path/to/baseline.json
+   akameguard check path/to/site --baseline-file /path/to/baseline.json
    ```
 
 5. Install the PHP or Node.js runtime in **MONITOR** mode first, review JSONL
@@ -49,7 +59,7 @@ without blocking them. **BLOCK** mode is opt-in.
 
 ## Planned features
 
-ShellGuard is being developed around these capabilities:
+AkameGuard is being developed around these capabilities:
 
 1. A Python 3 command-line scanner reviews PHP and Node.js source files.
 2. A Python 3 monitor watches for suspicious changes and integrity changes.
@@ -57,13 +67,13 @@ ShellGuard is being developed around these capabilities:
    warning, with optional blocking after review.
 4. Clear reports help a beginner understand what was found and why it matters.
 
-ShellGuard will use Python's standard library wherever practical. The runtime
+AkameGuard will use Python's standard library wherever practical. The runtime
 files use only built-in PHP and Node.js APIs.
 
 ## Repository layout
 
 ```text
-ShellGuard/
+AkameGuard/
 ├── .gitignore
 ├── CONTRIBUTING.md
 ├── LICENSE
@@ -73,12 +83,12 @@ ShellGuard/
 │   ├── node_rules.json
 │   └── php_rules.json
 ├── runtime/
-│   ├── node/shellguard.js       # Node.js runtime guard
-│   ├── php/shellguard.php       # PHP runtime guard
+│   ├── node/akameguard.js       # Node.js runtime guard
+│   ├── php/akameguard.php       # PHP runtime guard
 │   ├── config.json              # shared runtime config
 │   └── rules.json               # shared PHP/Node request rules
-├── shellguard/
-│   ├── __main__.py              # python -m shellguard
+├── akameguard/
+│   ├── __main__.py              # python -m akameguard
 │   ├── config.py                # dependency-free config loader
 │   ├── integrity.py             # baseline and change monitor
 │   ├── harden.py                # read-only deployment hardening checker
@@ -95,7 +105,7 @@ ShellGuard/
 ```
 
 The safe test injector lives in a separate sibling directory named
-`shellguard_testkit/`, outside this repository. Keeping it separate makes it
+`akameguard_testkit/`, outside this repository. Keeping it separate makes it
 harder to confuse test fixtures with detection code.
 
 ## Requirements
@@ -113,7 +123,7 @@ Clone the repository. The scanner, monitor, and runtime examples run directly
 from the repository root, so no package installation is required:
 
 ```text
-python -m shellguard scan path/to/a/test-site
+python -m akameguard scan path/to/a/test-site
 ```
 
 On Windows, use `py -3` instead of `python` if that is how Python is installed.
@@ -139,7 +149,7 @@ runtime. Suspicious-looking sample files are not stored in the repository.
 ### Scan a site
 
 ```text
-python -m shellguard scan path/to/a/test-site
+python -m akameguard scan path/to/a/test-site
 ```
 
 The scanner reads only `.php`, `.phtml`, `.php5`, `.phar`, `.js`, `.mjs`, and
@@ -155,9 +165,9 @@ the backstop for new files and review its `NEW` and changed-code findings.
 Use JSON output or filter by minimum severity:
 
 ```text
-python -m shellguard scan path/to/a/test-site --format json
-python -m shellguard scan path/to/a/test-site --min-severity high
-python -m shellguard scan path/to/a/test-site --config path/to/config.yaml
+python -m akameguard scan path/to/a/test-site --format json
+python -m akameguard scan path/to/a/test-site --min-severity high
+python -m akameguard scan path/to/a/test-site --config path/to/config.yaml
 ```
 
 Exit codes are:
@@ -172,8 +182,8 @@ download files.
 ### Check deployment hardening
 
 ```text
-python -m shellguard harden-check --php-ini path/to/php.ini --site path/to/site
-python -m shellguard harden-check --php-ini path/to/php.ini --site path/to/site --format json
+python -m akameguard harden-check --php-ini path/to/php.ini --site path/to/site
+python -m akameguard harden-check --php-ini path/to/php.ini --site path/to/site --format json
 ```
 
 The checker reports `OK`, `WARN`, and `FAIL` records for PHP settings,
@@ -187,7 +197,7 @@ error returns `2`.
 Create a SHA-256 baseline for all regular files under a site:
 
 ```text
-python -m shellguard baseline path/to/a/test-site
+python -m akameguard baseline path/to/a/test-site
 ```
 
 By default, `baseline.json` is stored outside the scanned folder. Use
@@ -195,8 +205,8 @@ By default, `baseline.json` is stored outside the scanned folder. Use
 different location:
 
 ```text
-python -m shellguard baseline path/to/a/test-site --baseline-file path/to/baseline.json
-python -m shellguard check path/to/a/test-site --baseline-file path/to/baseline.json
+python -m akameguard baseline path/to/a/test-site --baseline-file path/to/baseline.json
+python -m akameguard check path/to/a/test-site --baseline-file path/to/baseline.json
 ```
 
 The check report identifies `NEW`, `MODIFIED`, and `DELETED` files. A new PHP or
@@ -206,15 +216,15 @@ Modified code files are medium severity; other changes are low severity.
 Updating an existing baseline requires confirmation:
 
 ```text
-python -m shellguard baseline path/to/a/test-site --update
-python -m shellguard baseline path/to/a/test-site --update --yes
+python -m akameguard baseline path/to/a/test-site --update
+python -m akameguard baseline path/to/a/test-site --update --yes
 ```
 
 Use `--scan` to run the Phase 2 scanner only on new and modified code files
 and include those results in the integrity report:
 
 ```text
-python -m shellguard check path/to/a/test-site --scan --format json
+python -m akameguard check path/to/a/test-site --scan --format json
 ```
 
 ### Runtime guards
@@ -228,8 +238,8 @@ For a PHP site, edit `runtime/config.json` and keep `mode` set to `monitor` for
 the first deployment. Then install one of these ways:
 
 1. Set `auto_prepend_file` in PHP configuration to the absolute path of
-   `runtime/php/shellguard.php`; or
-2. Add one `require '/absolute/path/to/runtime/php/shellguard.php';` at the
+   `runtime/php/akameguard.php`; or
+2. Add one `require '/absolute/path/to/runtime/php/akameguard.php';` at the
    beginning of the application entrypoint.
 
 The runtime inspects GET, POST, cookie, and request-header values without
@@ -241,16 +251,16 @@ and can compare requested files with an optional Phase 3 baseline.
 Express-style:
 
 ```js
-const shellguard = require('/absolute/path/to/runtime/node/shellguard');
-app.use(shellguard.createMiddleware());
+const akameguard = require('/absolute/path/to/runtime/node/akameguard');
+app.use(akameguard.createMiddleware());
 ```
 
 Plain `http` server:
 
 ```js
 const http = require('http');
-const shellguard = require('/absolute/path/to/runtime/node/shellguard');
-const guard = shellguard.createMiddleware();
+const akameguard = require('/absolute/path/to/runtime/node/akameguard');
+const guard = akameguard.createMiddleware();
 http.createServer((req, res) => guard(req, res, () => {
   res.end('application response');
 })).listen(3000);
@@ -273,7 +283,7 @@ request values, which helps avoid copying secrets into logs. When `log_path` is
 empty, each runtime uses a private per-process directory below the operating
 system temporary directory and writes `runtime.jsonl` there. On POSIX systems,
 the default directory is mode `0700` and the log file is mode `0600`; the
-default is not the shared `shellguard-runtime.jsonl` path.
+default is not the shared `akameguard-runtime.jsonl` path.
 
 After reviewing monitor logs, opt into blocking by changing:
 
@@ -298,7 +308,7 @@ enable it only after testing the application's complete process behavior.
 
 #### Hardening snippets
 
-PHP exposes `shellguard_hardening_snippets()` and Node exports
+PHP exposes `akameguard_hardening_snippets()` and Node exports
 `hardeningSnippets()`. Both return ready-to-copy `php_ini`, `apache_htaccess`,
 and `nginx` snippets that deny script execution in uploads-style folders.
 They return strings only and do not write files.
@@ -319,7 +329,7 @@ They return strings only and do not write files.
 `.git`, `node_modules`, and `vendor` are always ignored by default. Relative
 rule paths are resolved relative to the configuration file.
 
-## What ShellGuard does NOT do
+## What AkameGuard does NOT do
 
 - It does not guarantee that a site is malware-free or impossible to bypass.
 - It does not replace secure coding, updates, strong passwords, least-privilege
@@ -330,7 +340,7 @@ rule paths are resolved relative to the configuration file.
   application code.
 - It does not enable BLOCK mode or the Node child-process guard by surprise.
 
-Use ShellGuard only on systems you own or are authorized to assess. Review
+Use AkameGuard only on systems you own or are authorized to assess. Review
 monitor logs and hardening reports before making configuration changes, and
 keep recovery backups.
 
@@ -341,7 +351,7 @@ writes to the target site. It then adds harmless samples whose suspicious-lookin
 text appears only in comments or string literals.
 
 ```text
-python ../shellguard_testkit/test_injector.py path/to/a/test-site
+python ../akameguard_testkit/test_injector.py path/to/a/test-site
 ```
 
 The command prints the sandbox path and a pass/fail-style table. The first three
@@ -356,7 +366,7 @@ the `scan` subcommand and the `{sandbox}` placeholder. The testkit derives
 after the baseline is created and the harmless modification is applied:
 
 ```text
-python ../shellguard_testkit/test_injector.py path/to/a/test-site --scanner-command python -m shellguard scan "{sandbox}"
+python ../akameguard_testkit/test_injector.py path/to/a/test-site --scanner-command python -m akameguard scan "{sandbox}"
 ```
 
 The testkit does not implement scanning, integrity, or runtime guards
@@ -370,10 +380,10 @@ The injector prints an exact cleanup command. It is also safe to run it
 directly:
 
 ```text
-python ../shellguard_testkit/test_injector.py --cleanup path/to/shellguard-testkit-XXXXXX
+python ../akameguard_testkit/test_injector.py --cleanup path/to/akameguard-testkit-XXXXXX
 ```
 
-Cleanup is restricted to a `shellguard-testkit-*` directory directly under the
+Cleanup is restricted to an `akameguard-testkit-*` directory directly under the
 operating system temporary directory.
 
 ## Rules and configuration
@@ -413,7 +423,7 @@ source code while scanning.
 - [x] Phase 5: read-only hardening checks, packaging metadata, release and
   security documents, CI, templates, and pre-publish safety auditing.
 
-## Limitations
+## Known limitations
 
 - Request filtering is heuristic and can be bypassed; it is not a replacement
   for secure application design.
@@ -428,4 +438,4 @@ source code while scanning.
 
 ## License
 
-ShellGuard is released under the MIT License. See [LICENSE](LICENSE).
+AkameGuard is released under the MIT License. See [LICENSE](LICENSE).

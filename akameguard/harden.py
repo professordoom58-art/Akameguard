@@ -1,4 +1,4 @@
-"""Read-only deployment hardening checks for ShellGuard."""
+"""Read-only deployment hardening checks for AkameGuard."""
 
 from dataclasses import dataclass
 import os

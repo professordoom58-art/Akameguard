@@ -1,17 +1,17 @@
 'use strict';
 
 /**
- * ShellGuard Node.js runtime protection.
+ * AkameGuard Node.js runtime protection.
  *
  * The default mode is MONITOR: matching requests are logged and passed to the
  * application. BLOCK mode is opt-in. This module never evaluates request data
  * and never turns request strings into code or shell commands.
  *
  * Express-style installation:
- *   app.use(require('./shellguard').createMiddleware());
+ *   app.use(require('./akameguard').createMiddleware());
  *
  * Plain http installation:
- *   const guard = require('./shellguard').createMiddleware();
+ *   const guard = require('./akameguard').createMiddleware();
  *   http.createServer((req, res) => guard(req, res, () => handler(req, res)));
  */
 
@@ -29,7 +29,7 @@ let processDefaultLogPath;
 
 function defaultLogPath() {
   if (!processDefaultLogPath) {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shellguard-'));
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'akameguard-'));
     if (process.platform !== 'win32') fs.chmodSync(directory, 0o700);
     processDefaultLogPath = path.join(directory, 'runtime.jsonl');
   }
@@ -107,10 +107,10 @@ function loadConfig(options = {}) {
     : Array.from(UPLOAD_FOLDER_NAMES);
   config.childProcessGuard = config.child_process_guard || {};
   if (config.ipAllowlist.includes('*')) {
-    console.warn('ShellGuard warning: ip_allowlist contains "*" and bypasses request inspection for every client.');
+    console.warn('AkameGuard warning: ip_allowlist contains "*" and bypasses request inspection for every client.');
   }
   if (config.pathAllowlist.includes('/*')) {
-    console.warn('ShellGuard warning: path_allowlist contains "/*" and bypasses request inspection for every path.');
+    console.warn('AkameGuard warning: path_allowlist contains "/*" and bypasses request inspection for every path.');
   }
   return config;
 }
@@ -169,7 +169,7 @@ function logEvent(config, event) {
 function requestPath(req) {
   const raw = String(req.url || '/');
   try {
-    return new url.URL(raw, 'http://shellguard.local').pathname || '/';
+    return new url.URL(raw, 'http://akameguard.local').pathname || '/';
   } catch (_error) {
     return '/';
   }
@@ -318,7 +318,7 @@ function decodeRequestValue(value) {
 function requestValues(req) {
   const values = [];
   try {
-    const parsed = new url.URL(String(req.url || '/'), 'http://shellguard.local');
+    const parsed = new url.URL(String(req.url || '/'), 'http://akameguard.local');
     parsed.searchParams.forEach((value, key) => values.push({ key: `query.${key}`, value }));
   } catch (_error) {
     // A malformed URL is not a reason to execute or reject application code.
@@ -392,7 +392,7 @@ function inspectRequest(req, config, rules = loadRules(config)) {
 function blockResponse(res) {
   res.statusCode = 403;
   if (typeof res.setHeader === 'function') res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-  res.end('Request blocked by ShellGuard.\n');
+  res.end('Request blocked by AkameGuard.\n');
 }
 
 function createMiddleware(options = {}) {
@@ -405,7 +405,7 @@ function createMiddleware(options = {}) {
       logPath: config.logPath,
     });
   }
-  return function shellguardMiddleware(req, res, next) {
+  return function akameguardMiddleware(req, res, next) {
     const events = inspectRequest(req, config, rules);
     events.forEach((event) => logEvent(config, event));
     if (events.length > 0 && config.mode === 'block') {
@@ -458,7 +458,7 @@ function installChildProcessGuard(options = {}) {
       };
       logEvent({ logPath }, event);
       if (mode === 'block') {
-        const error = new Error('ShellGuard blocked a child_process call.');
+        const error = new Error('AkameGuard blocked a child_process call.');
         if (['exec', 'execFile'].includes(name) && typeof args[args.length - 1] === 'function') {
           args[args.length - 1](error);
           return undefined;

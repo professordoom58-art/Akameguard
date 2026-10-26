@@ -2,7 +2,7 @@
 
 ## Our pledge
 
-We are committed to making participation in ShellGuard a welcoming,
+We are committed to making participation in AkameGuard a welcoming,
 harassment-free experience for everyone, regardless of background or identity.
 
 ## Expected behavior
@@ -18,7 +18,7 @@ harassment-free experience for everyone, regardless of background or identity.
 - Harassment, discrimination, threats, or personal attacks.
 - Publishing private information without permission.
 - Deliberately adding malware, working web shells, or destructive test code.
-- Misusing ShellGuard against systems without authorization.
+- Misusing AkameGuard against systems without authorization.
 
 ## Enforcement
 

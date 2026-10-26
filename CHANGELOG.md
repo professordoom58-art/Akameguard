@@ -1,6 +1,8 @@
 # Changelog
 
-All notable ShellGuard changes are documented here.
+All notable AkameGuard changes are documented here.
+
+- Renamed from ShellGuard.
 
 ## [0.1.0] - 2026-10-25
 

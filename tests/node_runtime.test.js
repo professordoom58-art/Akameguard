@@ -6,13 +6,13 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const runtime = require('../runtime/node/shellguard.js');
+const runtime = require('../runtime/node/akameguard.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const RULES = path.join(ROOT, 'runtime', 'rules.json');
 
 function tempLog() {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shellguard-node-test-'));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'akameguard-node-test-'));
   return {
     directory,
     logPath: path.join(directory, 'runtime.jsonl'),
@@ -56,7 +56,7 @@ test('monitor middleware logs a harmless marker and calls next', () => {
     const response = fakeResponse();
     let nextCalled = false;
     middleware(
-      fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'),
+      fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'),
       response,
       () => { nextCalled = true; },
     );
@@ -72,8 +72,8 @@ test('request values are decoded twice and expanded command names are inspected'
   const { directory, logPath } = tempLog();
   try {
     const middleware = runtime.createMiddleware({ mode: 'monitor', logPath, rulesPath: RULES });
-    middleware(fakeRequest('/echo?action=eval%2528x%2529'), fakeResponse(), () => {});
-    middleware(fakeRequest('/echo?action=echo%20SHELLGUARD_TEST_MARKER'), fakeResponse(), () => {});
+    middleware(fakeRequest('/echo?action=eval%2528x%2529'), fakeResponse(), () => { });
+    middleware(fakeRequest('/echo?action=echo%20AKAMEGUARD_TEST_MARKER'), fakeResponse(), () => { });
     const ids = new Set(readLog(logPath).map((event) => event.rule_id));
     assert.equal(ids.has('REQUEST-EXECUTION-PATTERN'), true);
     assert.equal(ids.has('REQUEST-COMMAND-PARAMETER'), true);
@@ -89,7 +89,7 @@ test('block middleware returns 403 without running the endpoint', () => {
     const response = fakeResponse();
     let nextCalled = false;
     middleware(
-      fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'),
+      fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'),
       response,
       () => { nextCalled = true; },
     );
@@ -113,7 +113,7 @@ test('IP and path allowlists bypass request protection', () => {
     });
     const response = fakeResponse();
     let nextCalled = false;
-    middleware(fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'), response, () => { nextCalled = true; });
+    middleware(fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'), response, () => { nextCalled = true; });
     assert.equal(nextCalled, true);
     assert.equal(fs.existsSync(logPath), false);
   } finally {
@@ -133,7 +133,7 @@ test('IP CIDR allowlists match IPv4 and IPv6 clients', () => {
     const ipv4Response = fakeResponse();
     let ipv4NextCalled = false;
     ipv4Middleware(
-      fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER', '192.0.2.44'),
+      fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER', '192.0.2.44'),
       ipv4Response,
       () => { ipv4NextCalled = true; },
     );
@@ -149,7 +149,7 @@ test('IP CIDR allowlists match IPv4 and IPv6 clients', () => {
     const ipv6Response = fakeResponse();
     let ipv6NextCalled = false;
     ipv6Middleware(
-      fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER', '2001:db8::44'),
+      fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER', '2001:db8::44'),
       ipv6Response,
       () => { ipv6NextCalled = true; },
     );
@@ -191,7 +191,7 @@ test('default log path is private and log files are restrictive on POSIX', () =>
       configPath: path.join(directory, 'config.json'),
       rulesPath: RULES,
     });
-    middleware(fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'), fakeResponse(), () => {});
+    middleware(fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'), fakeResponse(), () => { });
     assert.equal(fs.existsSync(config.logPath), true);
     if (process.platform !== 'win32') {
       assert.equal(fs.statSync(config.logPath).mode & 0o777, 0o600);
@@ -212,8 +212,8 @@ test('runtime request regexes are compiled once per middleware', () => {
   try {
     const middleware = runtime.createMiddleware({ mode: 'monitor', logPath, rulesPath: RULES });
     const afterCreate = constructions;
-    middleware(fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'), fakeResponse(), () => {});
-    middleware(fakeRequest('/echo?cmd=echo%20SHELLGUARD_TEST_MARKER'), fakeResponse(), () => {});
+    middleware(fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'), fakeResponse(), () => { });
+    middleware(fakeRequest('/echo?cmd=echo%20AKAMEGUARD_TEST_MARKER'), fakeResponse(), () => { });
     assert.equal(constructions, afterCreate);
   } finally {
     global.RegExp = originalRegExp;
@@ -261,16 +261,16 @@ test('child process guard covers execFile, execFileSync, and fork', () => {
       logPath,
       allowlist: ['safe-tool'],
     });
-    fakeChildProcess.exec('SHELLGUARD_TEST_MARKER', () => {});
-    fakeChildProcess.execFile('SHELLGUARD_TEST_MARKER', [], () => {});
-    fakeChildProcess.execFileSync('SHELLGUARD_TEST_MARKER');
-    fakeChildProcess.fork('SHELLGUARD_TEST_MARKER');
+    fakeChildProcess.exec('AKAMEGUARD_TEST_MARKER', () => { });
+    fakeChildProcess.execFile('AKAMEGUARD_TEST_MARKER', [], () => { });
+    fakeChildProcess.execFileSync('AKAMEGUARD_TEST_MARKER');
+    fakeChildProcess.fork('AKAMEGUARD_TEST_MARKER');
     restoreMonitor();
     assert.deepEqual(calls, [
-      'SHELLGUARD_TEST_MARKER',
-      'SHELLGUARD_TEST_MARKER',
-      'SHELLGUARD_TEST_MARKER',
-      'SHELLGUARD_TEST_MARKER',
+      'AKAMEGUARD_TEST_MARKER',
+      'AKAMEGUARD_TEST_MARKER',
+      'AKAMEGUARD_TEST_MARKER',
+      'AKAMEGUARD_TEST_MARKER',
     ]);
     assert.equal(readLog(logPath)[0].type, 'child_process_call');
 
@@ -280,9 +280,9 @@ test('child process guard covers execFile, execFileSync, and fork', () => {
       logPath,
       allowlist: [],
     });
-    assert.throws(() => fakeChildProcess.spawnSync('SHELLGUARD_TEST_MARKER'), /blocked/i);
-    assert.throws(() => fakeChildProcess.execFileSync('SHELLGUARD_TEST_MARKER'), /blocked/i);
-    assert.throws(() => fakeChildProcess.fork('SHELLGUARD_TEST_MARKER'), /blocked/i);
+    assert.throws(() => fakeChildProcess.spawnSync('AKAMEGUARD_TEST_MARKER'), /blocked/i);
+    assert.throws(() => fakeChildProcess.execFileSync('AKAMEGUARD_TEST_MARKER'), /blocked/i);
+    assert.throws(() => fakeChildProcess.fork('AKAMEGUARD_TEST_MARKER'), /blocked/i);
     restoreBlock();
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

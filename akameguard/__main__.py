@@ -1,4 +1,4 @@
-"""Command-line entry point for ``python -m shellguard``."""
+"""Command-line entry point for ``python -m akameguard``."""
 
 import argparse
 import json
@@ -21,7 +21,7 @@ from .scanner import ScanError, ScanResult, scan
 
 def _build_parser():
     parser = argparse.ArgumentParser(
-        prog="shellguard",
+        prog="akameguard",
         description="Read-only PHP and Node.js security scanner, integrity monitor, and hardening checker.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)

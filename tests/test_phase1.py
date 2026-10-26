@@ -16,15 +16,15 @@ class PhaseOneScaffoldTests(unittest.TestCase):
             ROOT / "config.yaml",
             ROOT / "rules" / "php_rules.json",
             ROOT / "rules" / "node_rules.json",
-            ROOT / "shellguard" / "__init__.py",
-            ROOT / "shellguard" / "__main__.py",
-            ROOT / "shellguard" / "config.py",
-            ROOT / "shellguard" / "harden.py",
-            ROOT / "shellguard" / "integrity.py",
-            ROOT / "shellguard" / "rules.py",
-            ROOT / "shellguard" / "scanner.py",
-            ROOT / "runtime" / "php" / "shellguard.php",
-            ROOT / "runtime" / "node" / "shellguard.js",
+            ROOT / "akameguard" / "__init__.py",
+            ROOT / "akameguard" / "__main__.py",
+            ROOT / "akameguard" / "config.py",
+            ROOT / "akameguard" / "harden.py",
+            ROOT / "akameguard" / "integrity.py",
+            ROOT / "akameguard" / "rules.py",
+            ROOT / "akameguard" / "scanner.py",
+            ROOT / "runtime" / "php" / "akameguard.php",
+            ROOT / "runtime" / "node" / "akameguard.js",
             ROOT / "runtime" / "config.json",
             ROOT / "runtime" / "rules.json",
             ROOT / "tests" / "test_phase1.py",
@@ -67,13 +67,13 @@ class PhaseOneScaffoldTests(unittest.TestCase):
         self.assertIn("/private_testing/", gitignore.splitlines())
 
     def test_runtime_files_are_protection_implementations(self):
-        php_runtime = (ROOT / "runtime" / "php" / "shellguard.php").read_text(
+        php_runtime = (ROOT / "runtime" / "php" / "akameguard.php").read_text(
             encoding="utf-8"
         )
-        node_runtime = (ROOT / "runtime" / "node" / "shellguard.js").read_text(
+        node_runtime = (ROOT / "runtime" / "node" / "akameguard.js").read_text(
             encoding="utf-8"
         )
-        self.assertIn("function shellguard_protect", php_runtime)
+        self.assertIn("function akameguard_protect", php_runtime)
         self.assertIn("function createMiddleware", node_runtime)
 
     def test_readme_uses_detection_language_and_planned_features_heading(self):

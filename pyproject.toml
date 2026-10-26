@@ -3,14 +3,15 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shellguard"
+name = "akameguard"
 version = "0.1.0"
-description = "Beginner-friendly read-only PHP and Node.js web shell scanner and hardening toolkit"
+description = "Beginner-friendly read-only PHP and Node.js web shell detection and hardening toolkit"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
+keywords = ["web shell", "detection", "early warning", "php", "node.js", "integrity monitoring", "security"]
 authors = [
-  { name = "ShellGuard contributors" },
+  { name = "AkameGuard contributors" },
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -20,9 +21,14 @@ classifiers = [
   "Topic :: Security",
 ]
 
+[project.urls]
+Homepage = "https://github.com/professordoom58-art/AkameGuard"
+Repository = "https://github.com/professordoom58-art/AkameGuard"
+Issues = "https://github.com/professordoom58-art/AkameGuard/issues"
+
 [project.scripts]
-shellguard = "shellguard.__main__:main"
+akameguard = "akameguard.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["shellguard*"]
+include = ["akameguard*"]

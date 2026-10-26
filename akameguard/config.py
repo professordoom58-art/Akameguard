@@ -1,6 +1,6 @@
-"""Small, dependency-free configuration loader for ShellGuard.
+"""Small, dependency-free configuration loader for AkameGuard.
 
-ShellGuard keeps its configuration intentionally simple so the scanner can run
+AkameGuard keeps its configuration intentionally simple so the scanner can run
 with Python's standard library only. The parser supports the small YAML subset
 used by ``config.yaml``: mappings, indented lists, strings, integers, booleans,
 and inline lists.
@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 class ConfigError(ValueError):
-    """Raised when a ShellGuard configuration cannot be loaded."""
+    """Raised when an AkameGuard configuration cannot be loaded."""
 
 
 DEFAULT_IGNORE_FOLDERS = frozenset({".git", "node_modules", "vendor"})
@@ -95,7 +95,7 @@ def _next_content(lines: List[Tuple[int, str]], start: int) -> Optional[Tuple[in
 
 
 def _parse_simple_yaml(text: str) -> Dict[str, Any]:
-    """Parse the small YAML subset used by ShellGuard's config files."""
+    """Parse the small YAML subset used by AkameGuard's config files."""
 
     prepared: List[Tuple[int, str]] = []
     for line_number, raw_line in enumerate(text.splitlines(), start=1):

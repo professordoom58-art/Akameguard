@@ -1,22 +1,22 @@
 <?php
 /**
- * ShellGuard PHP runtime protection.
+ * AkameGuard PHP runtime protection.
  *
  * Default behavior is MONITOR: suspicious requests are recorded as JSON lines
  * and allowed to continue. BLOCK mode is opt-in in runtime/config.json or in
- * the options passed to shellguard_protect(). This file never evaluates,
+ * the options passed to akameguard_protect(). This file never evaluates,
  * includes, or executes request data.
  *
  * Install with auto_prepend_file or with one require from the application
- * entrypoint. Define SHELLGUARD_NO_AUTO_INIT before requiring this file when a
- * test harness needs to call shellguard_protect() manually.
+ * entrypoint. Define AKAMEGUARD_NO_AUTO_INIT before requiring this file when a
+ * test harness needs to call akameguard_protect() manually.
  */
 
 declare(strict_types=1);
 
-if (!function_exists('shellguard_protect')) {
+if (!function_exists('akameguard_protect')) {
     /** @return array<int, array<string, mixed>> */
-    function shellguard_json_file(string $path, array $fallback = []): array
+    function akameguard_json_file(string $path, array $fallback = []): array
     {
         if (!is_file($path) || !is_readable($path)) {
             return $fallback;
@@ -30,11 +30,11 @@ if (!function_exists('shellguard_protect')) {
     }
 
     /** @param array<string, mixed> $base @param array<string, mixed> $override */
-    function shellguard_merge_config(array $base, array $override): array
+    function akameguard_merge_config(array $base, array $override): array
     {
         foreach ($override as $key => $value) {
             if (isset($base[$key]) && is_array($base[$key]) && is_array($value)) {
-                $base[$key] = shellguard_merge_config($base[$key], $value);
+                $base[$key] = akameguard_merge_config($base[$key], $value);
             } else {
                 $base[$key] = $value;
             }
@@ -42,38 +42,38 @@ if (!function_exists('shellguard_protect')) {
         return $base;
     }
 
-    function shellguard_log_regex_failure(string $context): void
+    function akameguard_log_regex_failure(string $context): void
     {
         error_log(
-            'ShellGuard: regex match failed for ' . $context
+            'AkameGuard: regex match failed for ' . $context
             . ' (preg_last_error=' . (string) preg_last_error() . ').'
         );
     }
 
-    function shellguard_preg_match(string $pattern, string $value, string $context): int
+    function akameguard_preg_match(string $pattern, string $value, string $context): int
     {
         $result = @preg_match($pattern, $value);
         if ($result === false || preg_last_error() !== PREG_NO_ERROR) {
-            shellguard_log_regex_failure($context);
+            akameguard_log_regex_failure($context);
             return 0;
         }
         return $result;
     }
 
-    function shellguard_default_config_path(): string
+    function akameguard_default_config_path(): string
     {
-        if (defined('SHELLGUARD_CONFIG_PATH')) {
-            return (string) constant('SHELLGUARD_CONFIG_PATH');
+        if (defined('AKAMEGUARD_CONFIG_PATH')) {
+            return (string) constant('AKAMEGUARD_CONFIG_PATH');
         }
         return __DIR__ . DIRECTORY_SEPARATOR . 'config.json';
     }
 
     /** @param array<string, mixed> $options @return array<string, mixed> */
-    function shellguard_runtime_config(array $options = []): array
+    function akameguard_runtime_config(array $options = []): array
     {
         $configPath = isset($options['config_path'])
             ? (string) $options['config_path']
-            : shellguard_default_config_path();
+            : akameguard_default_config_path();
         $configPath = realpath($configPath) ?: $configPath;
         $defaults = [
             'mode' => 'monitor',
@@ -90,8 +90,8 @@ if (!function_exists('shellguard_protect')) {
                 'allowlist' => [],
             ],
         ];
-        $config = shellguard_merge_config($defaults, shellguard_json_file($configPath, []));
-        $config = shellguard_merge_config($config, $options);
+        $config = akameguard_merge_config($defaults, akameguard_json_file($configPath, []));
+        $config = akameguard_merge_config($config, $options);
         $config['_config_path'] = $configPath;
         $config['_config_dir'] = dirname($configPath);
         $config['mode'] = strtolower((string) $config['mode']) === 'block' ? 'block' : 'monitor';
@@ -101,7 +101,7 @@ if (!function_exists('shellguard_protect')) {
             }
         }
         if (preg_last_error() !== PREG_NO_ERROR) {
-            shellguard_log_regex_failure('runtime configuration path');
+            akameguard_log_regex_failure('runtime configuration path');
         }
         if (empty($config['web_root'])) {
             $config['web_root'] = isset($_SERVER['DOCUMENT_ROOT']) && $_SERVER['DOCUMENT_ROOT'] !== ''
@@ -111,67 +111,67 @@ if (!function_exists('shellguard_protect')) {
             $config['web_root'] = $config['_config_dir'] . DIRECTORY_SEPARATOR . $config['web_root'];
         }
         if (preg_last_error() !== PREG_NO_ERROR) {
-            shellguard_log_regex_failure('web root configuration path');
+            akameguard_log_regex_failure('web root configuration path');
         }
-        shellguard_warn_broad_allowlists($config);
+        akameguard_warn_broad_allowlists($config);
         return $config;
     }
 
     /** @param array<string, mixed> $config @return array<string, mixed> */
-    function shellguard_runtime_rules(array $config): array
+    function akameguard_runtime_rules(array $config): array
     {
         $rulesPath = isset($config['rules_path']) ? (string) $config['rules_path'] : '';
-        $rules = shellguard_json_file($rulesPath, []);
+        $rules = akameguard_json_file($rulesPath, []);
         return isset($rules['request_patterns']) && is_array($rules['request_patterns'])
             ? $rules
             : ['request_patterns' => []];
     }
 
-    function shellguard_log_path(array $config): string
+    function akameguard_log_path(array $config): string
     {
         if (!empty($config['log_path'])) {
             return (string) $config['log_path'];
         }
-        $configPath = (string) ($config['_config_path'] ?? 'shellguard');
+        $configPath = (string) ($config['_config_path'] ?? 'akameguard');
         $processId = function_exists('getmypid') ? (string) getmypid() : 'unknown';
         $suffix = substr(hash('sha256', $configPath . '|' . $processId), 0, 16);
         return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
-            . DIRECTORY_SEPARATOR . 'shellguard-' . $processId . '-' . $suffix
+            . DIRECTORY_SEPARATOR . 'akameguard-' . $processId . '-' . $suffix
             . DIRECTORY_SEPARATOR . 'runtime.jsonl';
     }
 
     /** @param array<string, mixed> $config */
-    function shellguard_warn_broad_allowlists(array $config): void
+    function akameguard_warn_broad_allowlists(array $config): void
     {
         foreach ((array) ($config['ip_allowlist'] ?? []) as $allowed) {
             if ((string) $allowed === '*') {
-                error_log('ShellGuard warning: ip_allowlist contains "*" and bypasses request inspection for every client.');
+                error_log('AkameGuard warning: ip_allowlist contains "*" and bypasses request inspection for every client.');
             }
         }
         foreach ((array) ($config['path_allowlist'] ?? []) as $allowed) {
             if ((string) $allowed === '/*') {
-                error_log('ShellGuard warning: path_allowlist contains "/*" and bypasses request inspection for every path.');
+                error_log('AkameGuard warning: path_allowlist contains "/*" and bypasses request inspection for every path.');
             }
         }
     }
 
     /** @param array<string, mixed> $event */
-    function shellguard_log(array $config, array $event): void
+    function akameguard_log(array $config, array $event): void
     {
         $event['timestamp'] = gmdate('c');
         $event['runtime'] = 'php';
         $line = json_encode($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         if ($line === false) {
-            error_log('ShellGuard: could not encode a runtime log event as JSON.');
+            error_log('AkameGuard: could not encode a runtime log event as JSON.');
             return;
         }
-        $logPath = shellguard_log_path($config);
+        $logPath = akameguard_log_path($config);
         $directory = dirname($logPath);
         $defaultLog = empty($config['log_path']);
         if (!is_dir($directory)) {
             $directoryMode = $defaultLog ? 0700 : 0770;
             if (!@mkdir($directory, $directoryMode, true) && !is_dir($directory)) {
-                error_log('ShellGuard: could not create runtime log directory: ' . $directory);
+                error_log('AkameGuard: could not create runtime log directory: ' . $directory);
                 return;
             }
         }
@@ -179,14 +179,14 @@ if (!function_exists('shellguard_protect')) {
             @chmod($directory, 0700);
         }
         if (!is_writable($directory)) {
-            error_log('ShellGuard: runtime log directory is not writable: ' . $directory);
+            error_log('AkameGuard: runtime log directory is not writable: ' . $directory);
             return;
         }
         // Logging failures must never turn monitor mode into a site outage, but
         // they must remain visible to the server's error log.
         $written = @file_put_contents($logPath, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
         if ($written === false) {
-            error_log('ShellGuard: could not write runtime JSONL log: ' . $logPath);
+            error_log('AkameGuard: could not write runtime JSONL log: ' . $logPath);
             return;
         }
         if (defined('PHP_OS_FAMILY') && PHP_OS_FAMILY !== 'Windows') {
@@ -194,19 +194,19 @@ if (!function_exists('shellguard_protect')) {
         }
     }
 
-    function shellguard_request_path(): string
+    function akameguard_request_path(): string
     {
         $uri = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '/';
         $path = parse_url($uri, PHP_URL_PATH);
         return is_string($path) && $path !== '' ? $path : '/';
     }
 
-    function shellguard_client_ip(): string
+    function akameguard_client_ip(): string
     {
         return isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
     }
 
-    function shellguard_decode_request_value(string $value): string
+    function akameguard_decode_request_value(string $value): string
     {
         for ($layer = 0; $layer < 2; $layer++) {
             $decoded = rawurldecode($value);
@@ -219,41 +219,41 @@ if (!function_exists('shellguard_protect')) {
     }
 
     /** @param mixed $value @param array<int, array{key: string, value: string}> $items */
-    function shellguard_collect_values($value, string $key, array &$items, int $depth = 0): void
+    function akameguard_collect_values($value, string $key, array &$items, int $depth = 0): void
     {
         if ($depth > 8) {
             return;
         }
         if (is_array($value)) {
             foreach ($value as $childKey => $childValue) {
-                shellguard_collect_values($childValue, $key . '.' . (string) $childKey, $items, $depth + 1);
+                akameguard_collect_values($childValue, $key . '.' . (string) $childKey, $items, $depth + 1);
             }
             return;
         }
         if (is_scalar($value)) {
             $items[] = [
                 'key' => $key,
-                'value' => shellguard_decode_request_value((string) $value),
+                'value' => akameguard_decode_request_value((string) $value),
             ];
         }
     }
 
     /** @return array<int, array{key: string, value: string}> */
-    function shellguard_request_values(): array
+    function akameguard_request_values(): array
     {
         $items = [];
         foreach (['GET' => $_GET, 'POST' => $_POST, 'COOKIE' => $_COOKIE] as $source => $values) {
-            shellguard_collect_values($values, strtolower($source), $items);
+            akameguard_collect_values($values, strtolower($source), $items);
         }
         if (function_exists('getallheaders')) {
             $headers = getallheaders();
             if (is_array($headers)) {
-                shellguard_collect_values($headers, 'header', $items);
+                akameguard_collect_values($headers, 'header', $items);
             }
         }
         foreach ($_SERVER as $key => $value) {
             if (strpos((string) $key, 'HTTP_') === 0 || in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH'], true)) {
-                shellguard_collect_values($value, 'server.' . strtolower((string) $key), $items);
+                akameguard_collect_values($value, 'server.' . strtolower((string) $key), $items);
             }
         }
         $inputHandle = @fopen('php://input', 'rb');
@@ -264,28 +264,28 @@ if (!function_exists('shellguard_protect')) {
         if (is_string($rawInput) && $rawInput !== '') {
             $items[] = [
                 'key' => 'input',
-                'value' => shellguard_decode_request_value($rawInput),
+                'value' => akameguard_decode_request_value($rawInput),
             ];
         }
         return $items;
     }
 
-    function shellguard_parameter_name(string $key): string
+    function akameguard_parameter_name(string $key): string
     {
         $parts = explode('.', $key);
         return strtolower((string) end($parts));
     }
 
-    function shellguard_regex_matches(string $pattern, string $value): bool
+    function akameguard_regex_matches(string $pattern, string $value): bool
     {
         if ($pattern === '') {
             return false;
         }
-        return shellguard_preg_match('~' . $pattern . '~i', $value, 'runtime request rule') === 1;
+        return akameguard_preg_match('~' . $pattern . '~i', $value, 'runtime request rule') === 1;
     }
 
     /** @param array<string, mixed> $config */
-    function shellguard_ip_allowed(string $ip, array $config): bool
+    function akameguard_ip_allowed(string $ip, array $config): bool
     {
         foreach ((array) ($config['ip_allowlist'] ?? []) as $allowed) {
             $allowed = (string) $allowed;
@@ -310,7 +310,7 @@ if (!function_exists('shellguard_protect')) {
         return false;
     }
 
-    function shellguard_path_allowed(string $path, array $config): bool
+    function akameguard_path_allowed(string $path, array $config): bool
     {
         $normalized = '/' . ltrim(str_replace('\\', '/', $path), '/');
         foreach ((array) ($config['path_allowlist'] ?? []) as $allowed) {
@@ -325,7 +325,7 @@ if (!function_exists('shellguard_protect')) {
         return false;
     }
 
-    function shellguard_uploads_path(string $path, array $config): bool
+    function akameguard_uploads_path(string $path, array $config): bool
     {
         $parts = explode('/', strtolower(trim($path, '/')));
         $folders = array_map('strtolower', (array) ($config['uploads_folders'] ?? []));
@@ -337,18 +337,18 @@ if (!function_exists('shellguard_protect')) {
         return false;
     }
 
-    function shellguard_script_path(string $path): bool
+    function akameguard_script_path(string $path): bool
     {
-        return shellguard_preg_match(
+        return akameguard_preg_match(
             '/\.(?:php|phtml|php5|phar|js|mjs|cjs)$/i',
             $path,
             'script path check'
         ) === 1;
     }
 
-    function shellguard_php_execution_path(string $path): bool
+    function akameguard_php_execution_path(string $path): bool
     {
-        return shellguard_preg_match(
+        return akameguard_preg_match(
             '/\.(?:php|phtml|php5|phar)$/i',
             $path,
             'PHP execution path check'
@@ -356,7 +356,7 @@ if (!function_exists('shellguard_protect')) {
     }
 
     /** @param array<string, mixed> $config */
-    function shellguard_baseline_new_file(string $path, array $config): bool
+    function akameguard_baseline_new_file(string $path, array $config): bool
     {
         $baselinePath = (string) ($config['baseline_path'] ?? '');
         $webRoot = realpath((string) ($config['web_root'] ?? ''));
@@ -376,7 +376,7 @@ if (!function_exists('shellguard_protect')) {
             return false;
         }
         $relative = str_replace('\\', '/', substr($candidate, strlen($prefix)));
-        $baseline = shellguard_json_file($baselinePath, []);
+        $baseline = akameguard_json_file($baselinePath, []);
         foreach ((array) ($baseline['files'] ?? []) as $record) {
             if (is_array($record) && isset($record['path']) && (string) $record['path'] === $relative) {
                 return false;
@@ -386,7 +386,7 @@ if (!function_exists('shellguard_protect')) {
     }
 
     /** @param array<string, mixed> $config @param array<string, mixed> $rule */
-    function shellguard_rule_event(array $config, array $rule, string $path, string $parameter): array
+    function akameguard_rule_event(array $config, array $rule, string $path, string $parameter): array
     {
         return [
             'type' => 'request_pattern',
@@ -395,53 +395,53 @@ if (!function_exists('shellguard_protect')) {
             'explanation' => (string) ($rule['description'] ?? 'Shared runtime request rule matched.'),
             'path' => $path,
             'parameter' => $parameter,
-            'ip' => shellguard_client_ip(),
+            'ip' => akameguard_client_ip(),
             'mode' => $config['mode'],
         ];
     }
 
     /** @param array<string, mixed> $config @return array<int, array<string, mixed>> */
-    function shellguard_inspect_request(array $config): array
+    function akameguard_inspect_request(array $config): array
     {
-        $path = shellguard_request_path();
-        if (shellguard_ip_allowed(shellguard_client_ip(), $config) || shellguard_path_allowed($path, $config)) {
+        $path = akameguard_request_path();
+        if (akameguard_ip_allowed(akameguard_client_ip(), $config) || akameguard_path_allowed($path, $config)) {
             return [];
         }
         $events = [];
-        $requestValues = shellguard_request_values();
-        foreach ((array) shellguard_runtime_rules($config)['request_patterns'] as $rule) {
+        $requestValues = akameguard_request_values();
+        foreach ((array) akameguard_runtime_rules($config)['request_patterns'] as $rule) {
             if (!is_array($rule)) {
                 continue;
             }
             foreach ($requestValues as $item) {
-                $parameter = shellguard_parameter_name($item['key']);
+                $parameter = akameguard_parameter_name($item['key']);
                 $parameterMatches = !isset($rule['parameter_regex'])
-                    || shellguard_regex_matches((string) $rule['parameter_regex'], $parameter);
-                if ($parameterMatches && shellguard_regex_matches((string) ($rule['regex'] ?? ''), $item['value'])) {
-                    $events[] = shellguard_rule_event($config, $rule, $path, $item['key']);
+                    || akameguard_regex_matches((string) $rule['parameter_regex'], $parameter);
+                if ($parameterMatches && akameguard_regex_matches((string) ($rule['regex'] ?? ''), $item['value'])) {
+                    $events[] = akameguard_rule_event($config, $rule, $path, $item['key']);
                     break;
                 }
             }
         }
-        if (shellguard_uploads_path($path, $config) && shellguard_php_execution_path($path)) {
+        if (akameguard_uploads_path($path, $config) && akameguard_php_execution_path($path)) {
             $events[] = [
                 'type' => 'uploads_execution',
                 'rule_id' => 'RUNTIME-UPLOADS-PHP',
                 'severity' => 'high',
                 'explanation' => 'A PHP execution request targeted an uploads-style path.',
                 'path' => $path,
-                'ip' => shellguard_client_ip(),
+                'ip' => akameguard_client_ip(),
                 'mode' => $config['mode'],
             ];
         }
-        if (shellguard_baseline_new_file($path, $config)) {
+        if (akameguard_baseline_new_file($path, $config)) {
             $events[] = [
                 'type' => 'baseline_new_file',
                 'rule_id' => 'RUNTIME-BASELINE-NEW',
-                'severity' => shellguard_script_path($path) || shellguard_uploads_path($path, $config) ? 'high' : 'low',
+                'severity' => akameguard_script_path($path) || akameguard_uploads_path($path, $config) ? 'high' : 'low',
                 'explanation' => 'The requested file is not present in the configured baseline.',
                 'path' => $path,
-                'ip' => shellguard_client_ip(),
+                'ip' => akameguard_client_ip(),
                 'mode' => $config['mode'],
             ];
         }
@@ -449,32 +449,32 @@ if (!function_exists('shellguard_protect')) {
     }
 
     /** @param array<string, mixed> $event */
-    function shellguard_block(array $event): void
+    function akameguard_block(array $event): void
     {
         if (!headers_sent()) {
             http_response_code(403);
             header('Content-Type: text/plain; charset=utf-8');
         }
-        echo "Request blocked by ShellGuard.\n";
+        echo "Request blocked by AkameGuard.\n";
         exit;
     }
 
     /** @param array<string, mixed> $options @return array<int, array<string, mixed>> */
-    function shellguard_protect(array $options = []): array
+    function akameguard_protect(array $options = []): array
     {
-        $config = shellguard_runtime_config($options);
-        $events = shellguard_inspect_request($config);
+        $config = akameguard_runtime_config($options);
+        $events = akameguard_inspect_request($config);
         foreach ($events as $event) {
-            shellguard_log($config, $event);
+            akameguard_log($config, $event);
         }
         if ($events !== [] && $config['mode'] === 'block') {
-            shellguard_block($events[0]);
+            akameguard_block($events[0]);
         }
         return $events;
     }
 
     /** @return array<string, string> */
-    function shellguard_hardening_snippets(): array
+    function akameguard_hardening_snippets(): array
     {
         return [
             'php_ini' => "disable_functions = exec,system,shell_exec,passthru,proc_open,popen",
@@ -484,6 +484,6 @@ if (!function_exists('shellguard_protect')) {
     }
 }
 
-if (!defined('SHELLGUARD_NO_AUTO_INIT') || !constant('SHELLGUARD_NO_AUTO_INIT')) {
-    shellguard_protect();
+if (!defined('AKAMEGUARD_NO_AUTO_INIT') || !constant('AKAMEGUARD_NO_AUTO_INIT')) {
+    akameguard_protect();
 }

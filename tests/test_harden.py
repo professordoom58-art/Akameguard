@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from shellguard.harden import harden_check
+from akameguard.harden import harden_check
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,7 +119,7 @@ class HardeningCheckerTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "shellguard",
+                    "akameguard",
                     "harden-check",
                     "--php-ini",
                     str(php_ini),
@@ -142,7 +142,7 @@ class HardeningCheckerTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-m",
-                    "shellguard",
+                    "akameguard",
                     "harden-check",
                     "--php-ini",
                     str(root / "missing.ini"),

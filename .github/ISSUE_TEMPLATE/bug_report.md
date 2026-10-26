@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible ShellGuard problem
+about: Report a reproducible AkameGuard problem
 title: "[Bug] "
 labels: bug
 assignees: ''
@@ -13,7 +13,7 @@ Describe the problem in one or two sentences.
 ## Component and version
 
 - Component: scanner / integrity / harden-check / PHP runtime / Node runtime / other
-- ShellGuard version or commit:
+- AkameGuard version or commit:
 - Python, Node.js, PHP, and operating system versions:
 
 ## Reproduction

@@ -1,4 +1,4 @@
-"""Rule loading and validation for ShellGuard."""
+"""Rule loading and validation for AkameGuard."""
 
 from dataclasses import dataclass
 import json

@@ -1,6 +1,6 @@
-# Contributing to ShellGuard
+# Contributing to AkameGuard
 
-Thank you for helping make ShellGuard easier to understand and safer to use.
+Thank you for helping make AkameGuard easier to understand and safer to use.
 This project is intentionally beginner friendly. Small, well-explained changes
 are welcome.
 
@@ -15,7 +15,7 @@ are welcome.
 
 ## Development setup
 
-ShellGuard uses Python's standard library for its scanner and tests. From the
+AkameGuard uses Python's standard library for its scanner and tests. From the
 repository root, run:
 
 ```text
@@ -39,11 +39,11 @@ Use `py -3` on Windows when needed.
 
 Please do not publish a working web shell, command-execution payload, or
 real-world bypass in the repository. If you discover a security issue in
-ShellGuard itself, open a private report through the project maintainer's
+AkameGuard itself, open a private report through the project maintainer's
 preferred security channel rather than putting exploit details in a public
 issue.
 
-The external `shellguard_testkit/` folder is for disposable local sandboxes. It
+The external `akameguard_testkit/` folder is for disposable local sandboxes. It
 must copy a target site before adding anything, and its cleanup command must
 never delete outside a testkit-created temporary directory.
 
