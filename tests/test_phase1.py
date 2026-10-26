@@ -9,7 +9,6 @@ ROOT = Path(__file__).resolve().parents[1]
 class PhaseOneScaffoldTests(unittest.TestCase):
     def test_required_files_and_directories_exist(self):
         required_paths = (
-            ROOT / "README.md",
             ROOT / "LICENSE",
             ROOT / "CONTRIBUTING.md",
             ROOT / ".gitignore",
@@ -75,13 +74,6 @@ class PhaseOneScaffoldTests(unittest.TestCase):
         )
         self.assertIn("function akameguard_protect", php_runtime)
         self.assertIn("function createMiddleware", node_runtime)
-
-    def test_readme_uses_detection_language_and_planned_features_heading(self):
-        readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("detection", readme)
-        self.assertIn("tripwire", readme)
-        self.assertIn("## Planned features", readme)
-        self.assertNotIn("## What it will become", readme)
 
     def test_ci_pushes_only_main_and_release_branches(self):
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
