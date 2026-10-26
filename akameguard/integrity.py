@@ -211,9 +211,6 @@ def collect_state(
         except OSError as exc:
             skipped.append(SkippedFile(display, "cannot stat: %s" % exc))
             continue
-        if stat.st_size > config.max_file_size_bytes:
-            skipped.append(SkippedFile(display, "larger than max_file_size_bytes"))
-            continue
         try:
             file_hash = _hash_file(path)
         except OSError as exc:

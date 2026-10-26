@@ -399,6 +399,33 @@ class ScannerTests(unittest.TestCase):
                 [{"path": "large.php", "reason": "larger than max_file_size_bytes"}],
             )
 
+    def test_oversized_php_is_reported_while_oversized_node_stays_skipped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            site = workspace / "site"
+            config_path = workspace / "scanner.yaml"
+            _write(site / "large.php", "<?php echo 'oversized marker'; ?>\n" + "A" * 100)
+            _write(site / "large.js", "console.log('oversized marker');\n" + "B" * 100)
+            _write(config_path, "scanner:\n  max_file_size_bytes: 10\n")
+
+            config = load_config(str(config_path))
+            result = scan(str(site), config, load_rules(config.rule_paths))
+
+            oversized_php = [
+                finding for finding in result.findings
+                if finding.rule_id == "PATH-OVERSIZED-PHP"
+            ]
+            self.assertEqual(len(oversized_php), 1)
+            self.assertEqual(oversized_php[0].file, "large.php")
+            self.assertEqual(oversized_php[0].severity, "medium")
+            self.assertEqual(
+                [(item.path, item.reason) for item in result.skipped_files],
+                [
+                    ("large.js", "larger than max_file_size_bytes"),
+                    ("large.php", "larger than max_file_size_bytes"),
+                ],
+            )
+
     def test_accepted_findings_require_matching_path_rule_and_hash(self):
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary)

@@ -168,7 +168,7 @@ class IntegrityMonitorTests(unittest.TestCase):
             baseline = resolve_baseline_path(str(site), load_config())
             self.assertNotIn(site.resolve(), baseline.parents)
 
-    def test_skipped_files_are_structured_with_path_and_reason(self):
+    def test_large_files_are_hashed_and_changes_are_detected(self):
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary)
             site = workspace / "site"
@@ -179,9 +179,17 @@ class IntegrityMonitorTests(unittest.TestCase):
             config = load_config(str(config_path))
 
             result = create_baseline(str(site), config, baseline)
-            self.assertEqual(len(result.skipped_files), 1)
-            self.assertEqual(result.skipped_files[0].path, "large.txt")
-            self.assertEqual(result.skipped_files[0].reason, "larger than max_file_size_bytes")
+            self.assertEqual(result.file_count, 1)
+            self.assertEqual(result.skipped_files, ())
+            payload = json.loads(baseline.read_text(encoding="utf-8"))
+            self.assertEqual([record["path"] for record in payload["files"]], ["large.txt"])
+
+            _write(site / "large.txt", "y" * 100)
+            checked = check_baseline(str(site), config, baseline)
+            self.assertEqual(
+                {(change.change, change.file) for change in checked.changes},
+                {("MODIFIED", "large.txt")},
+            )
 
     def test_baseline_write_failure_keeps_existing_file_intact(self):
         with tempfile.TemporaryDirectory() as temporary:

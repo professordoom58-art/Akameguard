@@ -555,6 +555,16 @@ def _scan_file(
     except OSError as exc:
         raise ScanError("cannot stat %s: %s" % (path, exc)) from exc
     if size > config.max_file_size_bytes:
+        if path.suffix.lower() in PHP_EXTENSIONS:
+            _add_finding(
+                findings,
+                display,
+                1,
+                "PATH-OVERSIZED-PHP",
+                "medium",
+                "A PHP file exceeds the configured scan size limit and was not content-scanned.",
+                "Review the file manually or raise the limit for an authorized scan.",
+            )
         skipped.append(SkippedFile(display, "larger than max_file_size_bytes"))
         return
     try:
