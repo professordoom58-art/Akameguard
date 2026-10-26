@@ -14,6 +14,7 @@ from .integrity import (
     create_baseline,
     resolve_baseline_path,
 )
+from .harden import HardenError, HardeningResult, harden_check, text_report as harden_text_report
 from .rules import RuleError, load_rules
 from .scanner import ScanError, ScanResult, scan
 
@@ -21,7 +22,7 @@ from .scanner import ScanError, ScanResult, scan
 def _build_parser():
     parser = argparse.ArgumentParser(
         prog="shellguard",
-        description="Read-only PHP and Node.js web shell source scanner.",
+        description="Read-only PHP and Node.js security scanner, integrity monitor, and hardening checker.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
     scan_parser = subparsers.add_parser("scan", help="scan a file or directory")
@@ -57,6 +58,7 @@ def _build_parser():
     baseline_parser.add_argument(
         "--baseline-file",
         "--baseline",
+        "--output",
         dest="baseline_file",
         help="baseline JSON path (default: outside the scanned folder)",
     )
@@ -99,6 +101,18 @@ def _build_parser():
         action="store_true",
         help="run the Phase 2 scanner on new and modified code files",
     )
+    harden_parser = subparsers.add_parser(
+        "harden-check",
+        help="check PHP, web-server, and site permission hardening",
+    )
+    harden_parser.add_argument("--php-ini", help="php.ini file to inspect")
+    harden_parser.add_argument("--site", help="site directory to inspect")
+    harden_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="report format (default: text)",
+    )
     return parser
 
 
@@ -108,7 +122,7 @@ def _json_report(result: ScanResult) -> str:
         "summary": result.summary(),
     }
     if result.skipped_files:
-        payload["skipped"] = list(result.skipped_files)
+        payload["skipped"] = [item.as_dict() for item in result.skipped_files]
     return json.dumps(payload, indent=2, sort_keys=False)
 
 
@@ -144,7 +158,10 @@ def _text_report(result: ScanResult) -> str:
     )
     if result.skipped_files:
         lines.append("Skipped:")
-        lines.extend("  %s" % path for path in result.skipped_files)
+        lines.extend(
+            "  %s: %s" % (item.path, item.reason)
+            for item in result.skipped_files
+        )
     return "\n".join(lines)
 
 
@@ -155,7 +172,7 @@ def _baseline_json(result: BaselineResult) -> str:
             "target": str(result.target),
             "root": str(result.root),
             "files": result.file_count,
-            "skipped_files": list(result.skipped_files),
+            "skipped_files": [item.as_dict() for item in result.skipped_files],
             "warnings": list(result.warnings),
         },
         indent=2,
@@ -173,7 +190,10 @@ def _baseline_text(result: BaselineResult) -> str:
     lines.extend(result.warnings)
     if result.skipped_files:
         lines.append("Skipped:")
-        lines.extend("  %s" % item for item in result.skipped_files)
+        lines.extend(
+            "  %s: %s" % (item.path, item.reason)
+            for item in result.skipped_files
+        )
     return "\n".join(lines)
 
 
@@ -187,7 +207,7 @@ def _check_json(result: CheckResult) -> str:
         "changes": [change.as_dict() for change in result.changes],
         "scanner_findings": scanner_findings,
         "summary": result.summary(),
-        "skipped_files": list(result.skipped_files),
+        "skipped_files": [item.as_dict() for item in result.skipped_files],
         "warnings": list(result.warnings),
     }
     return json.dumps(payload, indent=2)
@@ -231,7 +251,10 @@ def _check_text(result: CheckResult) -> str:
     )
     if result.skipped_files:
         lines.append("Skipped:")
-        lines.extend("  %s" % item for item in result.skipped_files)
+        lines.extend(
+            "  %s: %s" % (item.path, item.reason)
+            for item in result.skipped_files
+        )
     return "\n".join(lines)
 
 
@@ -245,10 +268,28 @@ def _confirm_update(baseline_file) -> bool:
     return answer.strip().lower() == "yes"
 
 
+def _harden_json(result: HardeningResult) -> str:
+    return json.dumps(
+        {
+            "findings": [finding.as_dict() for finding in result.findings],
+            "summary": result.summary(),
+        },
+        indent=2,
+    )
+
+
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == "harden-check":
+            result = harden_check(php_ini=args.php_ini, site=args.site)
+            if args.format == "json":
+                print(_harden_json(result))
+            else:
+                print(harden_text_report(result))
+            return result.exit_code
+
         config = load_config(args.config)
         if args.command == "scan":
             rules = load_rules(config.rule_paths)
@@ -295,7 +336,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             return 1 if result.summary()["total_findings"] else 0
 
         parser.error("a command is required")
-    except (ConfigError, RuleError, ScanError, OSError, ValueError) as exc:
+    except (ConfigError, RuleError, ScanError, HardenError, OSError, ValueError) as exc:
         print("Error: %s" % exc, file=sys.stderr)
         return 2
 

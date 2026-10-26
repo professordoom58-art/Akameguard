@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "request_patterns": [
+    {
+      "id": "REQUEST-COMMAND-PARAMETER",
+      "description": "A request parameter name and value resemble command execution input.",
+      "parameter_regex": "^(?:cmd|command|exec|execute|shell|payload|code)$",
+      "regex": "(?:[;&|`]|\\b(?:sh|bash|cmd|powershell|curl|wget|whoami|uname|id|echo)\\b)",
+      "severity": "high"
+    },
+    {
+      "id": "REQUEST-EXECUTION-PATTERN",
+      "description": "The request contains a known dynamic execution function pattern.",
+      "regex": "\\b(?:eval|system|shell_exec|passthru|proc_open|popen|exec|child_process|execSync|spawn|spawnSync)\\s*\\(",
+      "severity": "high"
+    },
+    {
+      "id": "REQUEST-ENCODED-PAYLOAD",
+      "description": "The request contains a common encoded or transformed payload pattern.",
+      "regex": "\\b(?:base64_decode|gzinflate|str_rot13|fromCharCode)\\s*\\(",
+      "severity": "medium"
+    },
+    {
+      "id": "REQUEST-LONG-ENCODED-DATA",
+      "description": "The request contains a long base64-like data segment.",
+      "regex": "(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{100,}={0,2}(?![A-Za-z0-9+/])",
+      "severity": "medium"
+    }
+  ]
+}

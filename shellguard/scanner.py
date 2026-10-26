@@ -55,9 +55,21 @@ class Finding:
 
 
 @dataclass(frozen=True)
+class SkippedFile:
+    path: str
+    reason: str
+
+    def as_dict(self):
+        return {
+            "path": self.path,
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class ScanResult:
     findings: Tuple[Finding, ...]
-    skipped_files: Tuple[str, ...]
+    skipped_files: Tuple[SkippedFile, ...]
 
     def summary(self):
         counts = Counter(finding.severity for finding in self.findings)
@@ -185,19 +197,26 @@ def _rules_for_language(rules: Sequence[Rule], language: str) -> Iterable[Rule]:
     return (rule for rule in rules if rule.language is None or rule.language == language)
 
 
-def _scan_file(path: Path, root: Path, config: ScanConfig, rules: Sequence[Rule], findings: List[Finding], skipped: List[str]):
+def _scan_file(
+    path: Path,
+    root: Path,
+    config: ScanConfig,
+    rules: Sequence[Rule],
+    findings: List[Finding],
+    skipped: List[SkippedFile],
+):
     display = _display_path(path, root)
     try:
         size = path.stat().st_size
     except OSError as exc:
         raise ScanError("cannot stat %s: %s" % (path, exc)) from exc
     if size > config.max_file_size_bytes:
-        skipped.append("%s (larger than max_file_size_bytes)" % display)
+        skipped.append(SkippedFile(display, "larger than max_file_size_bytes"))
         return
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        skipped.append("%s (unreadable text file)" % display)
+        skipped.append(SkippedFile(display, "unreadable text file"))
         return
 
     language = _language_for_path(path)
@@ -228,7 +247,7 @@ def _iter_candidate_files(target: Path, ignore_folders: frozenset):
             yield target
         return
     ignored = {folder.lower() for folder in ignore_folders}
-    for current, directories, filenames in os.walk(str(target)):
+    for current, directories, filenames in os.walk(str(target), followlinks=False):
         directories[:] = sorted(
             directory for directory in directories if directory.lower() not in ignored
         )
@@ -250,7 +269,7 @@ def scan_files(
     if min_severity not in MIN_SEVERITY_VALUES:
         raise ScanError("unsupported minimum severity: %s" % min_severity)
     findings: List[Finding] = []
-    skipped: List[str] = []
+    skipped: List[SkippedFile] = []
     for path in paths:
         path = Path(path).resolve()
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:

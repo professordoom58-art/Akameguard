@@ -215,7 +215,7 @@ def load_config(config_path: Optional[str] = None) -> ScanConfig:
     else:
         rule_paths = _resolve_paths(DEFAULT_RULE_FILES, project_root)
     rule_paths += _resolve_paths(extra_rules, selected.parent)
-    baseline_value = integrity.get("baseline_file")
+    baseline_value = integrity.get("baseline_file", integrity.get("baseline_path"))
     baseline_file = None
     if baseline_value:
         baseline_file = _resolve_paths([str(baseline_value)], selected.parent)[0]

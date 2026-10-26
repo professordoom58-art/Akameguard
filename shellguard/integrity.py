@@ -7,11 +7,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import tempfile
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .config import ScanConfig
 from .rules import Rule
-from .scanner import SUPPORTED_EXTENSIONS, ScanResult, scan_files
+from .scanner import SUPPORTED_EXTENSIONS, ScanResult, SkippedFile, scan_files
 
 
 BASELINE_VERSION = 1
@@ -65,7 +66,7 @@ class BaselineResult:
     target: Path
     root: Path
     file_count: int
-    skipped_files: Tuple[str, ...]
+    skipped_files: Tuple[SkippedFile, ...]
     warnings: Tuple[str, ...]
 
 
@@ -73,7 +74,7 @@ class BaselineResult:
 class CheckResult:
     changes: Tuple[Change, ...]
     scanner_result: Optional[ScanResult]
-    skipped_files: Tuple[str, ...]
+    skipped_files: Tuple[SkippedFile, ...]
     warnings: Tuple[str, ...]
 
     def summary(self):
@@ -197,26 +198,26 @@ def collect_state(
     target: Path,
     config: ScanConfig,
     baseline_file: Optional[Path] = None,
-) -> Tuple[Dict[str, FileState], Tuple[str, ...]]:
+) -> Tuple[Dict[str, FileState], Tuple[SkippedFile, ...]]:
     """Hash regular files below a target, honoring ignore and size settings."""
 
     root = _scan_root(target)
     state: Dict[str, FileState] = {}
-    skipped: List[str] = []
+    skipped: List[SkippedFile] = []
     for path in _iter_files(target, config.ignore_folders, baseline_file):
         display = _display_path(path, root)
         try:
             stat = path.stat()
         except OSError as exc:
-            skipped.append("%s (cannot stat: %s)" % (display, exc))
+            skipped.append(SkippedFile(display, "cannot stat: %s" % exc))
             continue
         if stat.st_size > config.max_file_size_bytes:
-            skipped.append("%s (larger than max_file_size_bytes)" % display)
+            skipped.append(SkippedFile(display, "larger than max_file_size_bytes"))
             continue
         try:
             file_hash = _hash_file(path)
         except OSError as exc:
-            skipped.append("%s (cannot hash: %s)" % (display, exc))
+            skipped.append(SkippedFile(display, "cannot hash: %s" % exc))
             continue
         modified_time = getattr(stat, "st_mtime_ns", int(stat.st_mtime * 1000000000))
         state[display] = FileState(
@@ -242,12 +243,32 @@ def _baseline_payload(target: Path, root: Path, state: Dict[str, FileState], con
 def _write_baseline(path: Path, payload):
     if not path.parent.is_dir():
         raise IntegrityError("baseline parent directory does not exist: %s" % path.parent)
+    temporary_path = None
     try:
-        with path.open("w", encoding="utf-8", newline="\n") as handle:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=str(path.parent),
+            prefix=".%s." % path.name,
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
             json.dump(payload, handle, indent=2)
             handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(str(temporary_path), str(path))
+        temporary_path = None
     except OSError as exc:
         raise IntegrityError("cannot write baseline %s: %s" % (path, exc)) from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except OSError:
+                pass
 
 
 def create_baseline(
@@ -369,7 +390,7 @@ def check_baseline(
         )
     root = _scan_root(target)
     current, skipped = collect_state(target, config, baseline_file=baseline_file)
-    skipped_paths = {item.split(" (", 1)[0] for item in skipped}
+    skipped_paths = {item.path for item in skipped}
 
     new_paths = sorted(set(current) - set(previous))
     deleted_paths = sorted(set(previous) - set(current) - skipped_paths)

@@ -1,0 +1,21 @@
+{
+  "mode": "monitor",
+  "log_path": "",
+  "rules_path": "rules.json",
+  "baseline_path": "",
+  "web_root": "",
+  "ip_allowlist": [],
+  "path_allowlist": [],
+  "uploads_folders": [
+    "upload",
+    "uploads",
+    "uploaded",
+    "media",
+    "attachments"
+  ],
+  "child_process_guard": {
+    "enabled": false,
+    "mode": "monitor",
+    "allowlist": []
+  }
+}

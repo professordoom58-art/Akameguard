@@ -1,8 +1,8 @@
-# ShellGuard Phase 2 scanner configuration.
-# The integrity monitor and runtime protection remain disabled until later phases.
+# ShellGuard Phase 5 configuration.
+# Runtime protection defaults to monitor-only and remains opt-in for block mode.
 
 project_name: ShellGuard
-phase: 2
+phase: 5
 
 scanner:
   enabled: true
@@ -29,6 +29,8 @@ paths:
 runtime:
   php: runtime/php/shellguard.php
   node: runtime/node/shellguard.js
+  config: runtime/config.json
+  rules: runtime/rules.json
 
 reporting:
   output: stdout

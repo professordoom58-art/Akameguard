@@ -20,6 +20,8 @@ repository root, run:
 
 ```text
 python -m pytest -q
+node --test tests/node_runtime.test.js
+python scripts/prepublish_check.py
 ```
 
 Use `py -3` on Windows when needed.
@@ -51,4 +53,6 @@ never delete outside a testkit-created temporary directory.
 - [ ] Tests use safe, harmless sample strings.
 - [ ] No secrets or private data are included.
 - [ ] `python -m pytest -q` passes.
+- [ ] `node --test tests/node_runtime.test.js` passes when Node runtime code changes.
+- [ ] `python scripts/prepublish_check.py` passes in a Git checkout.
 - [ ] The summary explains any remaining limitations.

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shellguard"
+version = "0.1.0"
+description = "Beginner-friendly read-only PHP and Node.js web shell scanner and hardening toolkit"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+  { name = "ShellGuard contributors" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Security",
+]
+
+[project.scripts]
+shellguard = "shellguard.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shellguard*"]

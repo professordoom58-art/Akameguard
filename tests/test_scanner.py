@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -124,8 +125,48 @@ class ScannerTests(unittest.TestCase):
             ids = {finding.rule_id for finding in result.findings}
             self.assertIn("CUSTOM-NEEDLE", ids)
             self.assertNotIn("PATH-UPLOADS-SCRIPT", ids)
-            self.assertTrue(any("large.php" in skipped for skipped in result.skipped_files))
-            self.assertFalse(any("ignored.js" in skipped for skipped in result.skipped_files))
+            self.assertTrue(any(skipped.path == "large.php" and skipped.reason == "larger than max_file_size_bytes" for skipped in result.skipped_files))
+            self.assertFalse(any(skipped.path == "ignored.js" for skipped in result.skipped_files))
+
+            report = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "shellguard",
+                    "scan",
+                    str(site),
+                    "--config",
+                    str(config_path),
+                    "--format",
+                    "json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            payload = json.loads(report.stdout)
+            self.assertEqual(
+                payload["skipped"],
+                [{"path": "large.php", "reason": "larger than max_file_size_bytes"}],
+            )
+
+    def test_scanner_does_not_follow_symlinked_directories(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            site = workspace / "site"
+            outside = workspace / "outside"
+            _write(outside / "suspicious.php", "<?php // " + ("ev" + "al") + "('x');\n")
+            site.mkdir()
+            try:
+                os.symlink(outside, site / "linked", target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest("directory symlinks are unavailable: %s" % exc)
+
+            config = load_config()
+            result = scan(str(site), config, load_rules(config.rule_paths))
+            self.assertEqual(result.findings, ())
+            self.assertEqual(result.skipped_files, ())
 
     def test_cli_json_report_and_error_exit_codes(self):
         with tempfile.TemporaryDirectory() as temporary:

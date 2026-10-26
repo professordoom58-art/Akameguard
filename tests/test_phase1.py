@@ -19,10 +19,14 @@ class PhaseOneScaffoldTests(unittest.TestCase):
             ROOT / "shellguard" / "__init__.py",
             ROOT / "shellguard" / "__main__.py",
             ROOT / "shellguard" / "config.py",
+            ROOT / "shellguard" / "harden.py",
+            ROOT / "shellguard" / "integrity.py",
             ROOT / "shellguard" / "rules.py",
             ROOT / "shellguard" / "scanner.py",
             ROOT / "runtime" / "php" / "shellguard.php",
             ROOT / "runtime" / "node" / "shellguard.js",
+            ROOT / "runtime" / "config.json",
+            ROOT / "runtime" / "rules.json",
             ROOT / "tests" / "test_phase1.py",
         )
         for path in required_paths:
@@ -45,29 +49,42 @@ class PhaseOneScaffoldTests(unittest.TestCase):
                     self.assertTrue(rule["severity"])
                     self.assertNotIn(rule["id"], ids)
                     ids.add(rule["id"])
-    def test_phase_two_configuration_enables_scanning_only(self):
+    def test_phase_five_configuration_enables_scanning_and_monitor_mode_runtime(self):
         config = (ROOT / "config.yaml").read_text(encoding="utf-8")
-        self.assertIn("phase: 2", config)
+        self.assertIn("phase: 5", config)
         self.assertIn("enabled: true", config)
         self.assertIn("max_file_size_bytes: 2097152", config)
         self.assertIn("node_modules", config)
         self.assertIn("vendor", config)
         self.assertIn("rules/php_rules.json", config)
         self.assertIn("rules/node_rules.json", config)
+        runtime_config = json.loads((ROOT / "runtime" / "config.json").read_text(encoding="utf-8"))
+        self.assertEqual(runtime_config["mode"], "monitor")
+        self.assertFalse(runtime_config["child_process_guard"]["enabled"])
 
     def test_private_testing_folder_is_ignored(self):
         gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
         self.assertIn("/private_testing/", gitignore.splitlines())
 
-    def test_runtime_placeholders_are_inactive(self):
+    def test_runtime_files_are_protection_implementations(self):
         php_runtime = (ROOT / "runtime" / "php" / "shellguard.php").read_text(
             encoding="utf-8"
         )
         node_runtime = (ROOT / "runtime" / "node" / "shellguard.js").read_text(
             encoding="utf-8"
         )
-        self.assertIn("Phase 1 intentionally has no protection logic", php_runtime)
-        self.assertIn("enabled: false", node_runtime)
+        self.assertIn("function shellguard_protect", php_runtime)
+        self.assertIn("function createMiddleware", node_runtime)
+
+    def test_readme_uses_detection_language_and_planned_features_heading(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("web shell detection and early warning", readme)
+        self.assertIn("## Planned features", readme)
+        self.assertNotIn("## What it will become", readme)
+
+    def test_ci_pushes_only_main_and_release_branches(self):
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("  push:\n    branches:\n      - main\n      - 'release/*'\n  pull_request:", workflow)
 
 
 if __name__ == "__main__":
