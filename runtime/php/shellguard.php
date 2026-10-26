@@ -206,6 +206,18 @@ if (!function_exists('shellguard_protect')) {
         return isset($_SERVER['REMOTE_ADDR']) ? (string) $_SERVER['REMOTE_ADDR'] : 'unknown';
     }
 
+    function shellguard_decode_request_value(string $value): string
+    {
+        for ($layer = 0; $layer < 2; $layer++) {
+            $decoded = rawurldecode($value);
+            if ($decoded === $value) {
+                break;
+            }
+            $value = $decoded;
+        }
+        return $value;
+    }
+
     /** @param mixed $value @param array<int, array{key: string, value: string}> $items */
     function shellguard_collect_values($value, string $key, array &$items, int $depth = 0): void
     {
@@ -219,7 +231,10 @@ if (!function_exists('shellguard_protect')) {
             return;
         }
         if (is_scalar($value)) {
-            $items[] = ['key' => $key, 'value' => (string) $value];
+            $items[] = [
+                'key' => $key,
+                'value' => shellguard_decode_request_value((string) $value),
+            ];
         }
     }
 
@@ -240,6 +255,17 @@ if (!function_exists('shellguard_protect')) {
             if (strpos((string) $key, 'HTTP_') === 0 || in_array($key, ['CONTENT_TYPE', 'CONTENT_LENGTH'], true)) {
                 shellguard_collect_values($value, 'server.' . strtolower((string) $key), $items);
             }
+        }
+        $inputHandle = @fopen('php://input', 'rb');
+        $rawInput = $inputHandle === false ? false : @fread($inputHandle, 65536);
+        if (is_resource($inputHandle)) {
+            fclose($inputHandle);
+        }
+        if (is_string($rawInput) && $rawInput !== '') {
+            $items[] = [
+                'key' => 'input',
+                'value' => shellguard_decode_request_value($rawInput),
+            ];
         }
         return $items;
     }
@@ -382,11 +408,12 @@ if (!function_exists('shellguard_protect')) {
             return [];
         }
         $events = [];
+        $requestValues = shellguard_request_values();
         foreach ((array) shellguard_runtime_rules($config)['request_patterns'] as $rule) {
             if (!is_array($rule)) {
                 continue;
             }
-            foreach (shellguard_request_values() as $item) {
+            foreach ($requestValues as $item) {
                 $parameter = shellguard_parameter_name($item['key']);
                 $parameterMatches = !isset($rule['parameter_regex'])
                     || shellguard_regex_matches((string) $rule['parameter_regex'], $parameter);

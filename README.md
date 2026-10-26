@@ -147,6 +147,11 @@ The scanner reads only `.php`, `.phtml`, `.php5`, `.phar`, `.js`, `.mjs`, and
 uploads-style folders, long base64-like strings, high-entropy lines, and
 heavily obfuscated one-liners.
 
+The scanner also uses a conservative heuristic for PHP variable-function calls
+when a variable is assigned a dangerous function name and then called. Static
+matching cannot catch every dynamic construction. Keep the integrity monitor as
+the backstop for new files and review its `NEW` and changed-code findings.
+
 Use JSON output or filter by minimum severity:
 
 ```text

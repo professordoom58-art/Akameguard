@@ -68,6 +68,20 @@ test('monitor middleware logs a harmless marker and calls next', () => {
   }
 });
 
+test('request values are decoded twice and expanded command names are inspected', () => {
+  const { directory, logPath } = tempLog();
+  try {
+    const middleware = runtime.createMiddleware({ mode: 'monitor', logPath, rulesPath: RULES });
+    middleware(fakeRequest('/echo?action=eval%2528x%2529'), fakeResponse(), () => {});
+    middleware(fakeRequest('/echo?action=echo%20SHELLGUARD_TEST_MARKER'), fakeResponse(), () => {});
+    const ids = new Set(readLog(logPath).map((event) => event.rule_id));
+    assert.equal(ids.has('REQUEST-EXECUTION-PATTERN'), true);
+    assert.equal(ids.has('REQUEST-COMMAND-PARAMETER'), true);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('block middleware returns 403 without running the endpoint', () => {
   const { directory, logPath } = tempLog();
   try {

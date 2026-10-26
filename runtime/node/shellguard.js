@@ -301,6 +301,20 @@ function flattenValues(value, key, output, depth = 0) {
   output.push({ key, value: String(value) });
 }
 
+function decodeRequestValue(value) {
+  let decoded = String(value);
+  for (let layer = 0; layer < 2; layer += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch (_error) {
+      break;
+    }
+  }
+  return decoded;
+}
+
 function requestValues(req) {
   const values = [];
   try {
@@ -314,7 +328,7 @@ function requestValues(req) {
   flattenValues(req.params, 'params', values);
   flattenValues(req.cookies, 'cookies', values);
   flattenValues(req.headers, 'header', values);
-  return values;
+  return values.map((item) => ({ ...item, value: decodeRequestValue(item.value) }));
 }
 
 function parameterName(key) {

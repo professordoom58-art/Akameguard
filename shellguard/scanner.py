@@ -28,6 +28,32 @@ OBFUSCATION_MARKERS = (
     re.compile(r"(?i)\b(?:eval|assert)\s*\("),
     re.compile(r"\\x[0-9a-fA-F]{2}"),
 )
+NODE_COMMENT_SENSITIVE_RULES = frozenset(
+    {
+        "NODE-PROCESS-EXEC",
+        "NODE-CHILD-PROCESS-SPLIT",
+        "NODE-PROCESS-BINDING",
+        "NODE-DYNAMIC-IMPORT",
+    }
+)
+PHP_DANGEROUS_VARIABLE_FUNCTIONS = frozenset(
+    {
+        "assert",
+        "create_function",
+        "eval",
+        "exec",
+        "passthru",
+        "pcntl_exec",
+        "popen",
+        "proc_open",
+        "shell_exec",
+        "system",
+    }
+)
+PHP_VARIABLE_ASSIGNMENT_RE = re.compile(
+    r"(?i)\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*['\"](?P<function>[^'\"]+)['\"]"
+)
+PHP_VARIABLE_CALL_RE = re.compile(r"\$(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(")
 
 
 class ScanError(ValueError):
@@ -159,7 +185,68 @@ def _obfuscation_score(line: str) -> int:
     return score
 
 
-def _heuristic_findings(file: str, line_number: int, line: str, findings: List[Finding]):
+def _strip_line_comment(line: str) -> str:
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(line) - 1:
+        character = line[index]
+        if quote:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == quote:
+                quote = None
+        elif character in {"'", '"', "`"}:
+            quote = character
+        elif line[index : index + 2] == "//":
+            return line[:index]
+        index += 1
+    return line
+
+
+def _rule_search_text(rule: Rule, line: str) -> str:
+    if rule.id in NODE_COMMENT_SENSITIVE_RULES:
+        return _strip_line_comment(line)
+    return line
+
+
+def _variable_function_findings(
+    file: str,
+    line_number: int,
+    line: str,
+    findings: List[Finding],
+    known_variables: set,
+):
+    for match in PHP_VARIABLE_ASSIGNMENT_RE.finditer(line):
+        function_name = match.group("function").strip().lower()
+        if function_name in PHP_DANGEROUS_VARIABLE_FUNCTIONS:
+            known_variables.add(match.group("name"))
+    for match in PHP_VARIABLE_CALL_RE.finditer(line):
+        if match.group("name") in known_variables:
+            _add_finding(
+                findings,
+                file,
+                line_number,
+                "HEURISTIC-PHP-VARIABLE-FUNCTION",
+                "medium",
+                "A variable assigned a dangerous PHP function name is called as a function.",
+                "Trace the assignment and every input reaching the variable before deployment.",
+            )
+            break
+
+
+def _heuristic_findings(
+    file: str,
+    line_number: int,
+    line: str,
+    findings: List[Finding],
+    known_variables: set,
+    language: str,
+):
+    if language == "php":
+        _variable_function_findings(file, line_number, line, findings, known_variables)
     if LONG_BASE64_RE.search(line):
         _add_finding(
             findings,
@@ -224,10 +311,11 @@ def _scan_file(
         return
     _path_findings(path, display, findings)
     matching_rules = tuple(_rules_for_language(rules, language))
+    known_variables = set()
     for line_number, line in enumerate(text.splitlines(), start=1):
         seen_rule_ids = set()
         for rule in matching_rules:
-            if rule.compiled.search(line) and rule.id not in seen_rule_ids:
+            if rule.compiled.search(_rule_search_text(rule, line)) and rule.id not in seen_rule_ids:
                 _add_finding(
                     findings,
                     display,
@@ -238,7 +326,7 @@ def _scan_file(
                     "Review this match in context and remove it unless the behavior is documented and required.",
                 )
                 seen_rule_ids.add(rule.id)
-        _heuristic_findings(display, line_number, line, findings)
+        _heuristic_findings(display, line_number, line, findings, known_variables, language)
 
 
 def _iter_candidate_files(target: Path, ignore_folders: frozenset):

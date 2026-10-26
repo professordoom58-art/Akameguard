@@ -2,13 +2,13 @@
   {
     "id": "PHP-EVAL",
     "description": "PHP eval call syntax; review carefully because it evaluates a string as PHP code.",
-    "regex": "(?i)\\beval\\s*\\(",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\beval\\s*\\(",
     "severity": "critical"
   },
   {
     "id": "PHP-SYSTEM",
     "description": "PHP system call syntax; review for unexpected operating-system command execution.",
-    "regex": "(?i)\\bsystem\\s*\\(",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bsystem\\s*\\(",
     "severity": "high"
   },
   {
@@ -20,7 +20,7 @@
   {
     "id": "PHP-EXEC",
     "description": "PHP exec call syntax; review arguments and the surrounding data flow.",
-    "regex": "(?i)\\bexec\\s*\\(",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bexec\\s*\\(",
     "severity": "high"
   },
   {
@@ -38,7 +38,49 @@
   {
     "id": "PHP-ASSERT",
     "description": "PHP assert call syntax; review dynamic strings and legacy behavior.",
-    "regex": "(?i)\\bassert\\s*\\(",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bassert\\s*\\(",
     "severity": "medium"
+  },
+  {
+    "id": "PHP-POPEN",
+    "description": "PHP popen call syntax; review process creation and input handling.",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bpopen\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-PCNTL-EXEC",
+    "description": "PHP pcntl_exec call syntax; review operating-system command execution.",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bpcntl_exec\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-CREATE-FUNCTION",
+    "description": "PHP create_function call syntax; review dynamic code construction.",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bcreate_function\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-CALL-USER-FUNC",
+    "description": "PHP call_user_func call syntax; review dynamic callback selection and input handling.",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bcall_user_func\\s*\\(",
+    "severity": "medium"
+  },
+  {
+    "id": "PHP-CALL-USER-FUNC-ARRAY",
+    "description": "PHP call_user_func_array call syntax; review dynamic callback selection and input handling.",
+    "regex": "(?i)(?<![.$>:'/\\x22])\\bcall_user_func_array\\s*\\(",
+    "severity": "medium"
+  },
+  {
+    "id": "PHP-BACKTICK",
+    "description": "PHP backtick operator syntax; review for operating-system command execution.",
+    "regex": "(?i)`[^`\\r\\n]*`",
+    "severity": "high"
+  },
+  {
+    "id": "PHP-DYNAMIC-INCLUDE",
+    "description": "PHP include or require uses request data as a dynamic path.",
+    "regex": "(?i)\\b(?:include|include_once|require|require_once)\\s*(?:\\(\\s*)?\\$(?:_GET|_POST|_REQUEST|_COOKIE)\\b",
+    "severity": "high"
   }
 ]

@@ -8,8 +8,26 @@
   {
     "id": "NODE-PROCESS-EXEC",
     "description": "Node.js process-spawning call syntax; review command construction and input handling.",
-    "regex": "(?i)\\b(?:exec|execFile|spawn|fork)\\s*\\(",
+    "regex": "(?i)(?:\\bchild_process\\s*\\.\\s*|\\brequire\\s*\\(\\s*['\"]child_process['\"]\\s*\\)\\s*\\.\\s*)(?:exec|execFile|spawn|spawnSync|fork)\\s*\\(",
     "severity": "high"
+  },
+  {
+    "id": "NODE-CHILD-PROCESS-SPLIT",
+    "description": "Node.js child_process name is assembled from split string literals; review process API use.",
+    "regex": "(?i)\\brequire\\s*\\(\\s*['\"]child['\"]\\s*\\+\\s*['\"]_process['\"]\\s*\\)",
+    "severity": "high"
+  },
+  {
+    "id": "NODE-PROCESS-BINDING",
+    "description": "Node.js process.binding call syntax; review access to internal runtime bindings.",
+    "regex": "(?i)\\bprocess\\s*\\.\\s*binding\\s*\\(",
+    "severity": "high"
+  },
+  {
+    "id": "NODE-DYNAMIC-IMPORT",
+    "description": "Node.js dynamic import call syntax; review dynamically selected module paths.",
+    "regex": "(?i)\\bimport\\s*\\(",
+    "severity": "medium"
   },
   {
     "id": "NODE-VM-EVAL",

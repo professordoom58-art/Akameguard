@@ -2,9 +2,12 @@ from contextlib import contextmanager
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.request
 import unittest
 from pathlib import Path
 
@@ -30,6 +33,25 @@ def _find_php():
 
 
 PHP = _find_php()
+
+
+def _free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def _wait_for_port(process, port):
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if process.poll() is not None:
+            return False
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                return True
+        except OSError:
+            time.sleep(0.1)
+    return False
 
 
 @unittest.skipUnless(PHP, "PHP is not installed")
@@ -81,6 +103,124 @@ class PhpRuntimeTests(unittest.TestCase):
             self.assertIn("SAFE_ENDPOINT", result.stdout)
             self.assertTrue(log_path.is_file())
             self.assertIn("REQUEST-COMMAND-PARAMETER", log_path.read_text(encoding="utf-8"))
+
+    def test_request_values_are_decoded_twice_and_expanded_command_names_are_inspected(self):
+        php_binary = PHP
+        if php_binary is None:
+            self.skipTest("PHP is not installed")
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            log_path = directory / "runtime.jsonl"
+            config_path = directory / "config.json"
+            harness_path = directory / "harness.php"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "mode": "monitor",
+                        "log_path": str(log_path),
+                        "rules_path": str(ROOT / "runtime" / "rules.json"),
+                        "web_root": str(directory),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            harness_path.write_text(
+                "<?php\n"
+                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
+                "$_GET['action'] = 'eval%2528x%2529';\n"
+                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "$_GET['action'] = 'echo SHELLGUARD_TEST_MARKER';\n"
+                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [php_binary, str(harness_path)],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("REQUEST-EXECUTION-PATTERN", log_text)
+            self.assertIn("REQUEST-COMMAND-PARAMETER", log_text)
+
+    def test_php_input_is_inspected_with_a_bounded_read(self):
+        php_binary = PHP
+        if php_binary is None:
+            self.skipTest("PHP is not installed")
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            log_path = directory / "runtime.jsonl"
+            config_path = directory / "config.json"
+            harness_path = directory / "harness.php"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "mode": "monitor",
+                        "log_path": str(log_path),
+                        "rules_path": str(ROOT / "runtime" / "rules.json"),
+                        "web_root": str(directory),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            harness_path.write_text(
+                "<?php\n"
+                "define('SHELLGUARD_NO_AUTO_INIT', true);\n"
+                "require " + repr(str(ROOT / "runtime" / "php" / "shellguard.php")) + ";\n"
+                "$_SERVER['REQUEST_URI'] = '/echo.php';\n"
+                "shellguard_protect(['config_path' => " + repr(str(config_path)) + "]);\n"
+                "echo 'SAFE_ENDPOINT';\n",
+                encoding="utf-8",
+            )
+            port = _free_port()
+            process = subprocess.Popen(
+                [
+                    php_binary,
+                    "-S",
+                    "127.0.0.1:%d" % port,
+                    "-t",
+                    str(directory),
+                    str(harness_path),
+                ],
+                cwd=str(directory),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                self.assertTrue(_wait_for_port(process, port))
+                endpoint = "http://127.0.0.1:%d/echo.php" % port
+
+                def post(body):
+                    request = urllib.request.Request(
+                        endpoint,
+                        data=body.encode("utf-8"),
+                        headers={"Content-Type": "application/octet-stream"},
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(request, timeout=5) as response:
+                        return response.read().decode("utf-8", errors="replace")
+
+                self.assertIn("SAFE_ENDPOINT", post("echo SHELLGUARD_TEST_MARKER"))
+                self.assertIn("REQUEST-COMMAND-PARAMETER", log_path.read_text(encoding="utf-8"))
+
+                log_path.unlink()
+                self.assertIn(
+                    "SAFE_ENDPOINT",
+                    post(("a-" * 32768) + " echo SHELLGUARD_TEST_MARKER"),
+                )
+                self.assertFalse(log_path.exists())
+            finally:
+                process.terminate()
+                try:
+                    process.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate()
 
     def test_block_logs_and_stops_endpoint(self):
         with self._run_harness("block") as (result, log_path):

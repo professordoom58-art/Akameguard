@@ -4,14 +4,14 @@
     {
       "id": "REQUEST-COMMAND-PARAMETER",
       "description": "A request parameter name and value resemble command execution input.",
-      "parameter_regex": "^(?:cmd|command|exec|execute|shell|payload|code)$",
+      "parameter_regex": "^(?:cmd|command|command_line|exec|execute|shell|shell_cmd|payload|code|action|function|func|method|operation|op|run|run_cmd|arg|args|argument|input|data)$",
       "regex": "(?:[;&|`]|\\b(?:sh|bash|cmd|powershell|curl|wget|whoami|uname|id|echo)\\b)",
       "severity": "high"
     },
     {
       "id": "REQUEST-EXECUTION-PATTERN",
       "description": "The request contains a known dynamic execution function pattern.",
-      "regex": "\\b(?:eval|system|shell_exec|passthru|proc_open|popen|exec|child_process|execSync|spawn|spawnSync)\\s*\\(",
+      "regex": "\\b(?:eval|system|shell_exec|passthru|proc_open|popen|pcntl_exec|call_user_func|call_user_func_array|exec|child_process|execFile|execSync|spawn|spawnSync|fork)\\s*\\(",
       "severity": "high"
     },
     {
