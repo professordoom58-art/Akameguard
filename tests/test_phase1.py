@@ -78,7 +78,8 @@ class PhaseOneScaffoldTests(unittest.TestCase):
 
     def test_readme_uses_detection_language_and_planned_features_heading(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("web shell detection and early warning", readme)
+        self.assertIn("detection", readme)
+        self.assertIn("tripwire", readme)
         self.assertIn("## Planned features", readme)
         self.assertNotIn("## What it will become", readme)
 
